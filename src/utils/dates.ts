@@ -20,25 +20,6 @@ export function getCurrentTimeInTimezone(timezone: string): {
 }
 
 /**
- * Find the next business day from the given date, considering active days.
- * activeDays is an array of ISO weekday numbers (1=Mon..7=Sun).
- * Returns the next date that falls on an active day (always at least tomorrow).
- */
-export function getNextBusinessDay(fromDate: DateTime, activeDays: number[]): DateTime {
-  if (activeDays.length === 0) return fromDate.plus({ days: 1 });
-
-  let candidate = fromDate.plus({ days: 1 });
-  for (let i = 0; i < 7; i++) {
-    if (activeDays.includes(candidate.weekday)) {
-      return candidate;
-    }
-    candidate = candidate.plus({ days: 1 });
-  }
-  // Fallback: just return tomorrow
-  return fromDate.plus({ days: 1 });
-}
-
-/**
  * Check if the current hours:minutes exactly match a target "HH:MM" string.
  */
 export function isTimeMatch(currentHours: number, currentMinutes: number, targetTime: string): boolean {

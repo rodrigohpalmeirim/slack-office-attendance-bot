@@ -12,7 +12,6 @@ import {
 } from "./db.js";
 import {
   getCurrentTimeInTimezone,
-  getNextBusinessDay,
   isTimeMatch,
   isTodayActiveDay,
   formatDateForDisplay,
@@ -35,10 +34,11 @@ export function startScheduler(app: App): void {
         const now = getCurrentTimeInTimezone(tz);
         const askTime = user.custom_ask_time || config.default_ask_time;
 
-        if (!isTodayActiveDay(now.dayOfWeek, activeDays)) continue;
+        // Send the question if tomorrow is an office day
+        const tomorrow = DateTime.now().setZone(tz).plus({ days: 1 });
+        if (!isTodayActiveDay(tomorrow.weekday, activeDays)) continue;
 
-        const nextBizDay = getNextBusinessDay(DateTime.now().setZone(tz), activeDays);
-        const targetDate = nextBizDay.toFormat("yyyy-MM-dd");
+        const targetDate = tomorrow.toFormat("yyyy-MM-dd");
 
         if (!isTimeMatch(now.hours, now.minutes, askTime)) continue;
         if (getResponseForUserDate(user.slack_user_id, targetDate)) continue; // already asked
