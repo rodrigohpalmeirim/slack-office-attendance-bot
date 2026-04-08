@@ -104,11 +104,18 @@ export function registerActionHandlers(app: App): void {
 
     // Re-publish so the selector reflects the corrected list (in case of self-removal attempt)
     const config = getConfig();
+    const user = getUser(userId);
     const view = buildAdminHomeView({
       adminUserIds: newAdminIds,
       targetUserIds: getTargetUserIds(),
       activeDays: JSON.parse(config.active_days),
       defaultAskTime: config.default_ask_time,
+      userPrefs: {
+        defaultAskTime: config.default_ask_time,
+        customAskTime: user?.custom_ask_time ?? null,
+        enabled: user?.enabled !== 0,
+        isTarget: user?.is_target === 1,
+      },
     });
     await client.views.publish({ user_id: userId, view });
   });

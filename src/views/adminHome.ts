@@ -1,10 +1,12 @@
 import type { View } from "@slack/types";
+import { buildUserPreferenceBlocks, type UserHomeData } from "./userHome.js";
 
 export interface AdminHomeData {
   adminUserIds: string[];
   targetUserIds: string[];
   activeDays: number[];
   defaultAskTime: string;
+  userPrefs: UserHomeData;
 }
 
 const DAY_OPTIONS = [
@@ -84,6 +86,15 @@ export function buildAdminHomeView(data: AdminHomeData): View {
         type: "context",
         elements: [{ type: "mrkdwn", text: "Changes are saved automatically." }],
       },
+      { type: "divider" },
+      {
+        type: "header",
+        text: { type: "plain_text", text: "Your Preferences", emoji: true },
+      },
+      ...buildUserPreferenceBlocks(
+        data.userPrefs,
+        "You're not on the attendance list. Add yourself using the teammate selector above."
+      ),
     ],
   };
 }

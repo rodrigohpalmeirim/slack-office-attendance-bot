@@ -12,26 +12,24 @@ const ENABLED_OPTION = {
   value: "enabled",
 };
 
-export function buildUserHomeView(data: UserHomeData): View {
-  const blocks: any[] = [
-    {
-      type: "header",
-      text: { type: "plain_text", text: "Attendance Bot — Preferences", emoji: true },
-    },
-  ];
-
+/**
+ * Returns the preference blocks without a page header, so they can be
+ * embedded in other views (e.g. the admin home).
+ */
+export function buildUserPreferenceBlocks(data: UserHomeData, notTargetMessage?: string): any[] {
   if (!data.isTarget) {
-    blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: "You're not currently on the attendance list. An admin can add you.",
+    return [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: notTargetMessage ?? "You're not currently on the attendance list. An admin can add you.",
+        },
       },
-    });
-    return { type: "home", blocks };
+    ];
   }
 
-  blocks.push(
+  return [
     {
       type: "section",
       text: {
@@ -95,8 +93,19 @@ export function buildUserHomeView(data: UserHomeData): View {
           text: "Time is in your Slack timezone. Changes save automatically.",
         },
       ],
-    }
-  );
+    },
+  ];
+}
 
-  return { type: "home", blocks };
+export function buildUserHomeView(data: UserHomeData): View {
+  return {
+    type: "home",
+    blocks: [
+      {
+        type: "header",
+        text: { type: "plain_text", text: "Attendance Bot — Preferences", emoji: true },
+      },
+      ...buildUserPreferenceBlocks(data),
+    ],
+  };
 }

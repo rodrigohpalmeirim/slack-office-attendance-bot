@@ -17,11 +17,18 @@ export function registerAppHomeHandler(app: App): void {
     const config = getConfig();
 
     if (isAdmin(userId)) {
+      const user = getUser(userId);
       const view = buildAdminHomeView({
         adminUserIds: getAdminIds(),
         targetUserIds: getTargetUserIds(),
         activeDays: JSON.parse(config.active_days),
         defaultAskTime: config.default_ask_time,
+        userPrefs: {
+          defaultAskTime: config.default_ask_time,
+          customAskTime: user?.custom_ask_time ?? null,
+          enabled: user?.enabled !== 0,
+          isTarget: user?.is_target === 1,
+        },
       });
       await client.views.publish({ user_id: userId, view });
     } else {
