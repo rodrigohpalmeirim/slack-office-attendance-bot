@@ -1,0 +1,97 @@
+import type { View } from "@slack/types";
+
+export interface AdminHomeData {
+  targetUserIds: string[];
+  activeDays: number[];
+  defaultAskTime: string;
+  defaultSummaryTime: string;
+}
+
+const DAY_OPTIONS = [
+  { text: { type: "plain_text" as const, text: "Monday" }, value: "1" },
+  { text: { type: "plain_text" as const, text: "Tuesday" }, value: "2" },
+  { text: { type: "plain_text" as const, text: "Wednesday" }, value: "3" },
+  { text: { type: "plain_text" as const, text: "Thursday" }, value: "4" },
+  { text: { type: "plain_text" as const, text: "Friday" }, value: "5" },
+  { text: { type: "plain_text" as const, text: "Saturday" }, value: "6" },
+  { text: { type: "plain_text" as const, text: "Sunday" }, value: "7" },
+];
+
+export function buildAdminHomeView(data: AdminHomeData): View {
+  const selectedDayOptions = DAY_OPTIONS.filter((opt) =>
+    data.activeDays.includes(parseInt(opt.value))
+  );
+
+  return {
+    type: "home",
+    blocks: [
+      {
+        type: "header",
+        text: { type: "plain_text", text: "Attendance Bot — Admin", emoji: true },
+      },
+      { type: "divider" },
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "*Who should be asked about office attendance?*" },
+        accessory: {
+          type: "multi_users_select",
+          action_id: "admin_select_target_users",
+          placeholder: { type: "plain_text", text: "Select employees" },
+          ...(data.targetUserIds.length > 0
+            ? { initial_users: data.targetUserIds }
+            : {}),
+        },
+      },
+      { type: "divider" },
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "*Active days (question will be sent on these days):*" },
+      },
+      {
+        type: "actions",
+        block_id: "admin_active_days_block",
+        elements: [
+          {
+            type: "checkboxes",
+            action_id: "admin_select_active_days",
+            options: DAY_OPTIONS,
+            ...(selectedDayOptions.length > 0
+              ? { initial_options: selectedDayOptions }
+              : {}),
+          },
+        ],
+      },
+      { type: "divider" },
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "*Default time to ask the question:*" },
+        accessory: {
+          type: "timepicker",
+          action_id: "admin_set_ask_time",
+          initial_time: data.defaultAskTime,
+          placeholder: { type: "plain_text", text: "Select time" },
+        },
+      },
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "*Default time to send the summary:*" },
+        accessory: {
+          type: "timepicker",
+          action_id: "admin_set_summary_time",
+          initial_time: data.defaultSummaryTime,
+          placeholder: { type: "plain_text", text: "Select time" },
+        },
+      },
+      { type: "divider" },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: "Changes are saved automatically.",
+          },
+        ],
+      },
+    ],
+  };
+}

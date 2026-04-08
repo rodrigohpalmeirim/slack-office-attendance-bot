@@ -1,0 +1,19 @@
+{
+  "name": "slack-attendance-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/app.ts",
+    "start": "bun src/app.ts"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.1.0",
+    "luxon": "^3.5.0",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.4.2",
+    "@types/node-cron": "^3.0.11",
+    "bun-types": "^1.3.11"
+  }
+}
