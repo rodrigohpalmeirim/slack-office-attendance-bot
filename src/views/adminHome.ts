@@ -42,7 +42,7 @@ export function buildAdminHomeView(data: AdminHomeData): View {
       { type: "divider" },
       {
         type: "section",
-        text: { type: "mrkdwn", text: "*Active days (question will be sent on these days):*" },
+        text: { type: "mrkdwn", text: "*Which days does the team come to the office?*\n_The question is sent on the previous office day (e.g. Friday asks about Monday, Monday asks about Tuesday)._" },
       },
       {
         type: "actions",
