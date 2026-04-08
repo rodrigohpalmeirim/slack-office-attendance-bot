@@ -4,7 +4,6 @@ export interface AdminHomeData {
   targetUserIds: string[];
   activeDays: number[];
   defaultAskTime: string;
-  defaultSummaryTime: string;
 }
 
 const DAY_OPTIONS = [
@@ -37,9 +36,7 @@ export function buildAdminHomeView(data: AdminHomeData): View {
           type: "multi_users_select",
           action_id: "admin_select_target_users",
           placeholder: { type: "plain_text", text: "Select employees" },
-          ...(data.targetUserIds.length > 0
-            ? { initial_users: data.targetUserIds }
-            : {}),
+          ...(data.targetUserIds.length > 0 ? { initial_users: data.targetUserIds } : {}),
         },
       },
       { type: "divider" },
@@ -55,9 +52,7 @@ export function buildAdminHomeView(data: AdminHomeData): View {
             type: "checkboxes",
             action_id: "admin_select_active_days",
             options: DAY_OPTIONS,
-            ...(selectedDayOptions.length > 0
-              ? { initial_options: selectedDayOptions }
-              : {}),
+            ...(selectedDayOptions.length > 0 ? { initial_options: selectedDayOptions } : {}),
           },
         ],
       },
@@ -72,25 +67,10 @@ export function buildAdminHomeView(data: AdminHomeData): View {
           placeholder: { type: "plain_text", text: "Select time" },
         },
       },
-      {
-        type: "section",
-        text: { type: "mrkdwn", text: "*Default time to send the summary:*" },
-        accessory: {
-          type: "timepicker",
-          action_id: "admin_set_summary_time",
-          initial_time: data.defaultSummaryTime,
-          placeholder: { type: "plain_text", text: "Select time" },
-        },
-      },
       { type: "divider" },
       {
         type: "context",
-        elements: [
-          {
-            type: "mrkdwn",
-            text: "Changes are saved automatically.",
-          },
-        ],
+        elements: [{ type: "mrkdwn", text: "Changes are saved automatically." }],
       },
     ],
   };

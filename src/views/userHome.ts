@@ -2,9 +2,7 @@ import type { View } from "@slack/types";
 
 export interface UserHomeData {
   defaultAskTime: string;
-  defaultSummaryTime: string;
   customAskTime: string | null;
-  customSummaryTime: string | null;
   enabled: boolean;
   isTarget: boolean;
 }
@@ -38,7 +36,7 @@ export function buildUserHomeView(data: UserHomeData): View {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "Customize when you receive the daily attendance question and summary.",
+        text: "Each day you'll receive the attendance question and a live summary that updates as teammates respond.",
       },
     },
     { type: "divider" },
@@ -72,33 +70,17 @@ export function buildUserHomeView(data: UserHomeData): View {
         placeholder: { type: "plain_text", text: "Select time" },
       },
     },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*When to receive the summary:*\n_Default: ${data.defaultSummaryTime}_`,
-      },
-      accessory: {
-        type: "timepicker",
-        action_id: "user_set_summary_time",
-        initial_time: data.customSummaryTime ?? data.defaultSummaryTime,
-        placeholder: { type: "plain_text", text: "Select time" },
-      },
-    },
     { type: "divider" },
     {
       type: "actions",
       elements: [
         {
           type: "button",
-          text: { type: "plain_text", text: "Reset to defaults", emoji: true },
+          text: { type: "plain_text", text: "Reset to default time", emoji: true },
           action_id: "user_reset_preferences",
           confirm: {
             title: { type: "plain_text", text: "Reset preferences?" },
-            text: {
-              type: "mrkdwn",
-              text: "This will clear your custom ask and summary times.",
-            },
+            text: { type: "mrkdwn", text: "This will clear your custom ask time." },
             confirm: { type: "plain_text", text: "Reset" },
             deny: { type: "plain_text", text: "Cancel" },
           },
@@ -110,7 +92,7 @@ export function buildUserHomeView(data: UserHomeData): View {
       elements: [
         {
           type: "mrkdwn",
-          text: "Times are in your Slack timezone. Changes save automatically.",
+          text: "Time is in your Slack timezone. Changes save automatically.",
         },
       ],
     }

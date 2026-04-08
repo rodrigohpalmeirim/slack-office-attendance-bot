@@ -9,7 +9,8 @@ export interface SummaryData {
 }
 
 /**
- * Build the summary DM showing who's coming, who's not, and who hasn't answered.
+ * Build the live summary message. This message is sent once and then updated
+ * in-place as employees respond throughout the day.
  */
 export function buildSummaryMessage(data: SummaryData): KnownBlock[] {
   const blocks: KnownBlock[] = [
@@ -60,6 +61,11 @@ export function buildSummaryMessage(data: SummaryData): KnownBlock[] {
       },
     });
   }
+
+  blocks.push({
+    type: "context",
+    elements: [{ type: "mrkdwn", text: "_Updates as people respond_" }],
+  });
 
   return blocks;
 }

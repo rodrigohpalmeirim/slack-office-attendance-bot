@@ -22,16 +22,13 @@ export function registerAppHomeHandler(app: App): void {
         targetUserIds,
         activeDays: JSON.parse(config.active_days),
         defaultAskTime: config.default_ask_time,
-        defaultSummaryTime: config.default_summary_time,
       });
       await client.views.publish({ user_id: userId, view });
     } else {
       const user = getUser(userId);
       const view = buildUserHomeView({
         defaultAskTime: config.default_ask_time,
-        defaultSummaryTime: config.default_summary_time,
         customAskTime: user?.custom_ask_time ?? null,
-        customSummaryTime: user?.custom_summary_time ?? null,
         enabled: user?.enabled !== 0,
         isTarget: user?.is_target === 1,
       });

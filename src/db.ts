@@ -17,7 +17,6 @@ db.run(`
   CREATE TABLE IF NOT EXISTS config (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     default_ask_time TEXT NOT NULL DEFAULT '16:00',
-    default_summary_time TEXT NOT NULL DEFAULT '17:00',
     active_days TEXT NOT NULL DEFAULT '[1,2,3,4,5]',
     admin_user_ids TEXT NOT NULL DEFAULT '[]'
   )
@@ -30,7 +29,6 @@ db.run(`
     slack_user_id TEXT PRIMARY KEY,
     is_target INTEGER NOT NULL DEFAULT 0,
     custom_ask_time TEXT,
-    custom_summary_time TEXT,
     enabled INTEGER NOT NULL DEFAULT 1,
     timezone TEXT,
     timezone_updated_at TEXT,
@@ -57,11 +55,14 @@ db.run(`
 db.run("CREATE INDEX IF NOT EXISTS idx_responses_target_date ON responses(target_date)");
 db.run("CREATE INDEX IF NOT EXISTS idx_responses_user_date ON responses(slack_user_id, target_date)");
 
+// Stores the live summary message ts/channel per user per date so it can be updated in-place
 db.run(`
-  CREATE TABLE IF NOT EXISTS summary_log (
+  CREATE TABLE IF NOT EXISTS live_summaries (
     slack_user_id TEXT NOT NULL,
     target_date TEXT NOT NULL,
-    sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+    message_ts TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(slack_user_id, target_date)
   )
 `);
@@ -80,7 +81,6 @@ if (initialAdmins) {
 
 export interface Config {
   default_ask_time: string;
-  default_summary_time: string;
   active_days: string; // JSON array
   admin_user_ids: string; // JSON array
 }
@@ -89,7 +89,6 @@ export interface User {
   slack_user_id: string;
   is_target: number;
   custom_ask_time: string | null;
-  custom_summary_time: string | null;
   enabled: number;
   timezone: string | null;
   timezone_updated_at: string | null;
@@ -106,10 +105,17 @@ export interface Response {
   responded_at: string | null;
 }
 
+export interface LiveSummary {
+  slack_user_id: string;
+  target_date: string;
+  message_ts: string;
+  channel_id: string;
+}
+
 // --- Query Functions ---
 
 export function getConfig(): Config {
-  return db.query<Config, []>("SELECT default_ask_time, default_summary_time, active_days, admin_user_ids FROM config WHERE id = 1").get()!;
+  return db.query<Config, []>("SELECT default_ask_time, active_days, admin_user_ids FROM config WHERE id = 1").get()!;
 }
 
 export function updateConfig(fields: Partial<Config>): void {
@@ -197,21 +203,21 @@ export function isAdmin(slackUserId: string): boolean {
   return getAdminIds().includes(slackUserId);
 }
 
-export function hasSummarySent(slackUserId: string, targetDate: string): boolean {
-  const row = db.query<{ slack_user_id: string }, [string, string]>(
-    "SELECT slack_user_id FROM summary_log WHERE slack_user_id = ? AND target_date = ?"
-  ).get(slackUserId, targetDate);
-  return row !== null;
+export function getLiveSummariesForDate(targetDate: string): LiveSummary[] {
+  return db.query<LiveSummary, [string]>(
+    "SELECT * FROM live_summaries WHERE target_date = ?"
+  ).all(targetDate);
 }
 
-export function logSummarySent(slackUserId: string, targetDate: string): void {
-  db.run("INSERT OR IGNORE INTO summary_log (slack_user_id, target_date) VALUES (?, ?)", [slackUserId, targetDate]);
+export function upsertLiveSummary(slackUserId: string, targetDate: string, messageTs: string, channelId: string): void {
+  db.run(
+    "INSERT OR IGNORE INTO live_summaries (slack_user_id, target_date, message_ts, channel_id) VALUES (?, ?, ?, ?)",
+    [slackUserId, targetDate, messageTs, channelId]
+  );
 }
 
 export function setTargetUsers(userIds: string[]): void {
-  // Mark all existing as non-target
   db.run("UPDATE users SET is_target = 0, updated_at = datetime('now')");
-  // Upsert each selected user as target
   for (const userId of userIds) {
     upsertUser(userId, { is_target: 1 });
   }
