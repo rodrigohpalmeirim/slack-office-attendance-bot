@@ -7,6 +7,8 @@ import {
   getLiveSummariesForDate,
   updateConfig,
   setTargetUsers,
+  getAdminIds,
+  getTargetUserIds,
   upsertUser,
   getUser,
   getConfig,
@@ -87,6 +89,29 @@ export function registerActionHandlers(app: App): void {
   });
 
   // --- Admin Actions ---
+
+  app.action("admin_select_admins", async ({ ack, body, client }) => {
+    await ack();
+    const userId = body.user.id;
+    const action = (body as BlockAction).actions[0];
+    if (action.type !== "multi_users_select") return;
+
+    // Prevent the acting admin from removing themselves
+    const selected = action.selected_users || [];
+    const newAdminIds = selected.includes(userId) ? selected : [userId, ...selected];
+
+    updateConfig({ admin_user_ids: JSON.stringify(newAdminIds) });
+
+    // Re-publish so the selector reflects the corrected list (in case of self-removal attempt)
+    const config = getConfig();
+    const view = buildAdminHomeView({
+      adminUserIds: newAdminIds,
+      targetUserIds: getTargetUserIds(),
+      activeDays: JSON.parse(config.active_days),
+      defaultAskTime: config.default_ask_time,
+    });
+    await client.views.publish({ user_id: userId, view });
+  });
 
   app.action("admin_select_target_users", async ({ ack, body }) => {
     await ack();

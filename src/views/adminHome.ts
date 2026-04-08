@@ -1,6 +1,7 @@
 import type { View } from "@slack/types";
 
 export interface AdminHomeData {
+  adminUserIds: string[];
   targetUserIds: string[];
   activeDays: number[];
   defaultAskTime: string;
@@ -42,7 +43,7 @@ export function buildAdminHomeView(data: AdminHomeData): View {
       { type: "divider" },
       {
         type: "section",
-        text: { type: "mrkdwn", text: "*Which days does the team come to the office?*\n_The question is sent the day before each office day (e.g. Sunday asks about Monday, Monday asks about Tuesday)._" },
+        text: { type: "mrkdwn", text: "*Which days should be asked about?*\n_The question is sent the day before._" },
       },
       {
         type: "actions",
@@ -65,6 +66,17 @@ export function buildAdminHomeView(data: AdminHomeData): View {
           action_id: "admin_set_ask_time",
           initial_time: data.defaultAskTime,
           placeholder: { type: "plain_text", text: "Select time" },
+        },
+      },
+      { type: "divider" },
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "*Who are the admins?*" },
+        accessory: {
+          type: "multi_users_select",
+          action_id: "admin_select_admins",
+          placeholder: { type: "plain_text", text: "Select admins" },
+          ...(data.adminUserIds.length > 0 ? { initial_users: data.adminUserIds } : {}),
         },
       },
       { type: "divider" },

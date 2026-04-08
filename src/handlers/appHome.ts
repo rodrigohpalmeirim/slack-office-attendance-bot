@@ -1,5 +1,5 @@
 import type { App } from "@slack/bolt";
-import { getConfig, getUser, getTargetUserIds, isAdmin, upsertUser } from "../db.js";
+import { getConfig, getUser, getTargetUserIds, getAdminIds, isAdmin, upsertUser } from "../db.js";
 import { getUserTimezone } from "../utils/slack.js";
 import { buildAdminHomeView } from "../views/adminHome.js";
 import { buildUserHomeView } from "../views/userHome.js";
@@ -17,9 +17,9 @@ export function registerAppHomeHandler(app: App): void {
     const config = getConfig();
 
     if (isAdmin(userId)) {
-      const targetUserIds = getTargetUserIds();
       const view = buildAdminHomeView({
-        targetUserIds,
+        adminUserIds: getAdminIds(),
+        targetUserIds: getTargetUserIds(),
         activeDays: JSON.parse(config.active_days),
         defaultAskTime: config.default_ask_time,
       });
