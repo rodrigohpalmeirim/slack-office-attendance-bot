@@ -10,7 +10,7 @@ export interface SummaryData {
 
 /**
  * Build the live summary message. This message is sent once and then updated
- * in-place as employees respond throughout the day.
+ * in-place as teammates respond throughout the day.
  */
 export function buildSummaryMessage(data: SummaryData): KnownBlock[] {
   const blocks: KnownBlock[] = [

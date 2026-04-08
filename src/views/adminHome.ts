@@ -35,7 +35,7 @@ export function buildAdminHomeView(data: AdminHomeData): View {
         accessory: {
           type: "multi_users_select",
           action_id: "admin_select_target_users",
-          placeholder: { type: "plain_text", text: "Select employees" },
+          placeholder: { type: "plain_text", text: "Select teammates" },
           ...(data.targetUserIds.length > 0 ? { initial_users: data.targetUserIds } : {}),
         },
       },
