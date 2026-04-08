@@ -62,10 +62,5 @@ export function buildSummaryMessage(data: SummaryData): KnownBlock[] {
     });
   }
 
-  blocks.push({
-    type: "context",
-    elements: [{ type: "mrkdwn", text: "_Updates as people respond_" }],
-  });
-
   return blocks;
 }

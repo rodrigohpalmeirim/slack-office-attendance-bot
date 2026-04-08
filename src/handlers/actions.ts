@@ -10,17 +10,17 @@ import {
   upsertUser,
   getUser,
   getConfig,
-  isAdmin,
 } from "../db.js";
 import { updateMessage } from "../utils/slack.js";
 import { formatDateForDisplay } from "../utils/dates.js";
-import { buildAskMessage, buildAskConfirmation } from "../views/askMessage.js";
-import { buildSummaryMessage } from "../views/summaryMessage.js";
+import { buildCombinedMessage } from "../views/combinedMessage.js";
 import { buildAdminHomeView } from "../views/adminHome.js";
 import { buildUserHomeView } from "../views/userHome.js";
 
 /**
- * Rebuild the summary and update every user's live summary message for the given date.
+ * Rebuild the combined message for every user who has received it for the
+ * given date. Each user gets the shared summary state but their own
+ * question section (buttons vs. confirmation) based on their response.
  */
 async function updateAllLiveSummaries(client: WebClient, targetDate: string): Promise<void> {
   const allResponses = getResponsesForDate(targetDate);
@@ -35,12 +35,14 @@ async function updateAllLiveSummaries(client: WebClient, targetDate: string): Pr
   ];
 
   const formattedDate = formatDateForDisplay(targetDate);
-  const blocks = buildSummaryMessage({ targetDate, formattedDate, coming, notComing, noResponse });
-  const text = `Live attendance for ${formattedDate}`;
+  const summaryData = { targetDate, formattedDate, coming, notComing, noResponse };
+  const responseMap = new Map(allResponses.map((r) => [r.slack_user_id, r.response as "yes" | "no" | null]));
 
   for (const summary of getLiveSummariesForDate(targetDate)) {
+    const userResponse = responseMap.get(summary.slack_user_id) ?? null;
+    const blocks = buildCombinedMessage(targetDate, formattedDate, summaryData, userResponse);
     try {
-      await updateMessage(client, summary.channel_id, summary.message_ts, blocks, text);
+      await updateMessage(client, summary.channel_id, summary.message_ts, blocks, `Live attendance for ${formattedDate}`);
     } catch (err) {
       console.error(`Failed to update live summary for ${summary.slack_user_id}:`, err);
     }
@@ -56,24 +58,7 @@ export function registerActionHandlers(app: App): void {
     const targetDate = action.type === "button" ? action.value! : "";
     const userId = body.user.id;
 
-    upsertResponse(userId, targetDate, {
-      response: "yes",
-      responded_at: new Date().toISOString(),
-    });
-
-    const message = (body as BlockAction).message;
-    const channel = (body as BlockAction).channel;
-    if (message && channel) {
-      const formattedDate = formatDateForDisplay(targetDate);
-      await updateMessage(
-        client,
-        channel.id,
-        message.ts!,
-        buildAskConfirmation(targetDate, formattedDate, "yes"),
-        `You responded yes for ${formattedDate}`
-      );
-    }
-
+    upsertResponse(userId, targetDate, { response: "yes", responded_at: new Date().toISOString() });
     await updateAllLiveSummaries(client, targetDate);
   });
 
@@ -83,46 +68,22 @@ export function registerActionHandlers(app: App): void {
     const targetDate = action.type === "button" ? action.value! : "";
     const userId = body.user.id;
 
-    upsertResponse(userId, targetDate, {
-      response: "no",
-      responded_at: new Date().toISOString(),
-    });
-
-    const message = (body as BlockAction).message;
-    const channel = (body as BlockAction).channel;
-    if (message && channel) {
-      const formattedDate = formatDateForDisplay(targetDate);
-      await updateMessage(
-        client,
-        channel.id,
-        message.ts!,
-        buildAskConfirmation(targetDate, formattedDate, "no"),
-        `You responded no for ${formattedDate}`
-      );
-    }
-
+    upsertResponse(userId, targetDate, { response: "no", responded_at: new Date().toISOString() });
     await updateAllLiveSummaries(client, targetDate);
   });
 
   // --- Change Response ---
+  // Null the response so the user moves back to "no answer" in the summary,
+  // then update all messages (their own will show buttons again).
 
   app.action("attendance_change", async ({ ack, body, client }) => {
     await ack();
     const action = (body as BlockAction).actions[0];
     const targetDate = action.type === "button" ? action.value! : "";
+    const userId = body.user.id;
 
-    const message = (body as BlockAction).message;
-    const channel = (body as BlockAction).channel;
-    if (message && channel) {
-      const formattedDate = formatDateForDisplay(targetDate);
-      await updateMessage(
-        client,
-        channel.id,
-        message.ts!,
-        buildAskMessage(targetDate, formattedDate),
-        `Are you coming to the office on ${formattedDate}?`
-      );
-    }
+    upsertResponse(userId, targetDate, { response: null, responded_at: null });
+    await updateAllLiveSummaries(client, targetDate);
   });
 
   // --- Admin Actions ---

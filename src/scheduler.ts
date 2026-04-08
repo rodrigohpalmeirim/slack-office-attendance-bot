@@ -8,7 +8,6 @@ import {
   getResponseForUserDate,
   getResponsesForDate,
   upsertResponse,
-  getLiveSummariesForDate,
   upsertLiveSummary,
 } from "./db.js";
 import {
@@ -19,8 +18,7 @@ import {
   formatDateForDisplay,
 } from "./utils/dates.js";
 import { sendDm } from "./utils/slack.js";
-import { buildAskMessage } from "./views/askMessage.js";
-import { buildSummaryMessage } from "./views/summaryMessage.js";
+import { buildCombinedMessage } from "./views/combinedMessage.js";
 
 export function startScheduler(app: App): void {
   cron.schedule("* * * * *", async () => {
@@ -43,26 +41,12 @@ export function startScheduler(app: App): void {
         const targetDate = nextBizDay.toFormat("yyyy-MM-dd");
 
         if (!isTimeMatch(now.hours, now.minutes, askTime)) continue;
-
-        const existing = getResponseForUserDate(user.slack_user_id, targetDate);
-        if (existing) continue; // already asked today
+        if (getResponseForUserDate(user.slack_user_id, targetDate)) continue; // already asked
 
         try {
           const formattedDate = formatDateForDisplay(targetDate);
 
-          // Send the attendance question
-          const { ts: askTs, channelId } = await sendDm(
-            app.client,
-            user.slack_user_id,
-            buildAskMessage(targetDate, formattedDate),
-            `Are you coming to the office on ${formattedDate}?`
-          );
-          upsertResponse(user.slack_user_id, targetDate, {
-            message_ts: askTs,
-            channel_id: channelId,
-          });
-
-          // Send the live summary immediately after — starts with current state (all unanswered)
+          // Build initial summary (everyone unanswered at the time of sending)
           const allResponses = getResponsesForDate(targetDate);
           const allTargetIds = getAllTargetUsers().map((u) => u.slack_user_id);
           const respondedIds = new Set(allResponses.map((r) => r.slack_user_id));
@@ -74,13 +58,15 @@ export function startScheduler(app: App): void {
             ...allTargetIds.filter((id) => !respondedIds.has(id)),
           ];
 
-          const { ts: summaryTs, channelId: summaryChannel } = await sendDm(
+          const { ts, channelId } = await sendDm(
             app.client,
             user.slack_user_id,
-            buildSummaryMessage({ targetDate, formattedDate, coming, notComing, noResponse }),
-            `Live attendance for ${formattedDate}`
+            buildCombinedMessage(targetDate, formattedDate, { targetDate, formattedDate, coming, notComing, noResponse }, null),
+            `Are you coming to the office on ${formattedDate}?`
           );
-          upsertLiveSummary(user.slack_user_id, targetDate, summaryTs, summaryChannel);
+
+          upsertResponse(user.slack_user_id, targetDate, { message_ts: ts, channel_id: channelId });
+          upsertLiveSummary(user.slack_user_id, targetDate, ts, channelId);
         } catch (err) {
           console.error(`Failed to message ${user.slack_user_id}:`, err);
         }
