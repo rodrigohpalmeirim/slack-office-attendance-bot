@@ -1,0 +1,15 @@
+services:
+  slack-office-attendance-bot:
+    container_name: slack-office-attendance-bot
+    image: ghcr.io/rodrigohpalmeirim/slack-office-attendance-bot:latest
+    restart: unless-stopped
+    volumes:
+      - data:/data
+    environment:
+      SLACK_BOT_TOKEN: xoxb-...
+      SLACK_APP_TOKEN: xapp-...
+      SLACK_SIGNING_SECRET: ...
+      INITIAL_ADMIN_IDS: U12345
+
+volumes:
+  data:
