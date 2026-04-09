@@ -29,7 +29,15 @@ export function buildAdminHomeView(data: AdminHomeData): View {
     blocks: [
       {
         type: "header",
-        text: { type: "plain_text", text: "Attendance Bot — Admin", emoji: true },
+        text: { type: "plain_text", text: "Your Preferences", emoji: true },
+      },
+      ...buildUserPreferenceBlocks(
+        data.userPrefs,
+        "You're not on the attendance list. Add yourself using the teammate selector below."
+      ),
+      {
+        type: "header",
+        text: { type: "plain_text", text: "Admin Settings", emoji: true },
       },
       { type: "divider" },
       {
@@ -86,15 +94,7 @@ export function buildAdminHomeView(data: AdminHomeData): View {
         type: "context",
         elements: [{ type: "mrkdwn", text: "Changes are saved automatically." }],
       },
-      { type: "divider" },
-      {
-        type: "header",
-        text: { type: "plain_text", text: "Your Preferences", emoji: true },
-      },
-      ...buildUserPreferenceBlocks(
-        data.userPrefs,
-        "You're not on the attendance list. Add yourself using the teammate selector above."
-      ),
+      { type: "divider" }
     ],
   };
 }
