@@ -13,7 +13,7 @@ import {
   getUser,
   getConfig,
 } from "../db.js";
-import { updateMessage } from "../utils/slack.js";
+import { updateMessage, getUserTimezone } from "../utils/slack.js";
 import { formatDateForDisplay } from "../utils/dates.js";
 import { buildCombinedMessage } from "../views/combinedMessage.js";
 import { buildAdminHomeView } from "../views/adminHome.js";
@@ -120,11 +120,19 @@ export function registerActionHandlers(app: App): void {
     await client.views.publish({ user_id: userId, view });
   });
 
-  app.action("admin_select_target_users", async ({ ack, body }) => {
+  app.action("admin_select_target_users", async ({ ack, body, client }) => {
     await ack();
     const action = (body as BlockAction).actions[0];
-    if (action.type === "multi_users_select") {
-      setTargetUsers(action.selected_users || []);
+    if (action.type !== "multi_users_select") return;
+
+    const selectedUsers = action.selected_users || [];
+    setTargetUsers(selectedUsers);
+
+    // Fetch and cache timezones immediately so the scheduler uses the correct
+    // local time for each user rather than falling back to UTC.
+    for (const userId of selectedUsers) {
+      const tz = await getUserTimezone(client, userId);
+      upsertUser(userId, { timezone: tz, timezone_updated_at: new Date().toISOString() });
     }
   });
 
