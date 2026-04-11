@@ -18,9 +18,13 @@ db.run(`
     id INTEGER PRIMARY KEY CHECK (id = 1),
     default_ask_time TEXT NOT NULL DEFAULT '16:00',
     active_days TEXT NOT NULL DEFAULT '[1,2,3,4,5]',
-    admin_user_ids TEXT NOT NULL DEFAULT '[]'
+    admin_user_ids TEXT NOT NULL DEFAULT '[]',
+    lunch_user_ids TEXT NOT NULL DEFAULT '[]'
   )
 `);
+
+// Migration: add lunch_user_ids if missing
+try { db.run("ALTER TABLE config ADD COLUMN lunch_user_ids TEXT NOT NULL DEFAULT '[]'"); } catch {}
 
 db.run("INSERT OR IGNORE INTO config (id) VALUES (1)");
 
@@ -55,10 +59,10 @@ db.run(`
 db.run("CREATE INDEX IF NOT EXISTS idx_responses_target_date ON responses(target_date)");
 db.run("CREATE INDEX IF NOT EXISTS idx_responses_user_date ON responses(slack_user_id, target_date)");
 
-// Migration: add active_days_override column if it doesn't exist
-try {
-  db.run("ALTER TABLE users ADD COLUMN active_days_override TEXT");
-} catch {}
+// Migrations: add columns if they don't exist
+try { db.run("ALTER TABLE users ADD COLUMN active_days_override TEXT"); } catch {}
+try { db.run("ALTER TABLE users ADD COLUMN lunch_enabled INTEGER NOT NULL DEFAULT 1"); } catch {}
+try { db.run("ALTER TABLE responses ADD COLUMN lunch_response TEXT"); } catch {}
 
 // Stores the live summary message ts/channel per user per date so it can be updated in-place
 db.run(`
@@ -88,6 +92,7 @@ export interface Config {
   default_ask_time: string;
   active_days: string; // JSON array
   admin_user_ids: string; // JSON array
+  lunch_user_ids: string; // JSON array
 }
 
 export interface User {
@@ -98,6 +103,7 @@ export interface User {
   timezone: string | null;
   timezone_updated_at: string | null;
   active_days_override: string | null; // JSON number[], null means all active days
+  lunch_enabled: number;
 }
 
 export interface Response {
@@ -109,6 +115,7 @@ export interface Response {
   channel_id: string | null;
   asked_at: string;
   responded_at: string | null;
+  lunch_response: string | null;
 }
 
 export interface LiveSummary {
@@ -121,7 +128,12 @@ export interface LiveSummary {
 // --- Query Functions ---
 
 export function getConfig(): Config {
-  return db.query<Config, []>("SELECT default_ask_time, active_days, admin_user_ids FROM config WHERE id = 1").get()!;
+  return db.query<Config, []>("SELECT default_ask_time, active_days, admin_user_ids, lunch_user_ids FROM config WHERE id = 1").get()!;
+}
+
+export function getLunchUserIds(): string[] {
+  const config = getConfig();
+  return JSON.parse(config.lunch_user_ids) as string[];
 }
 
 export function updateConfig(fields: Partial<Config>): void {

@@ -6,6 +6,8 @@ export interface SummaryData {
   coming: string[];
   notComing: string[];
   noResponse: string[];
+  lunchBringing: string[];
+  lunchNotBringing: string[];
 }
 
 /**
@@ -36,6 +38,21 @@ export function buildSummaryMessage(data: SummaryData): KnownBlock[] {
       text: `:white_check_mark: *Coming (${data.coming.length}):*\n${comingText}`,
     },
   });
+
+  // Lunch (only if any lunch data exists)
+  if (data.lunchBringing.length > 0 || data.lunchNotBringing.length > 0) {
+    const parts: string[] = [];
+    if (data.lunchBringing.length > 0) {
+      parts.push(`Bringing lunch: ${data.lunchBringing.map((id) => `<@${id}>`).join(", ")}`);
+    }
+    if (data.lunchNotBringing.length > 0) {
+      parts.push(`Not bringing: ${data.lunchNotBringing.map((id) => `<@${id}>`).join(", ")}`);
+    }
+    blocks.push({
+      type: "context",
+      elements: [{ type: "mrkdwn", text: `:bento: ${parts.join("  ·  ")}` }],
+    });
+  }
 
   // Not coming
   const notComingText =

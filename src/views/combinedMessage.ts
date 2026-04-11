@@ -11,12 +11,14 @@ export function buildCombinedMessage(
   targetDate: string,
   formattedDate: string,
   summaryData: SummaryData,
-  userResponse: "yes" | "no" | null
+  userResponse: "yes" | "no" | null,
+  showLunchQuestion: boolean,
+  userLunchResponse: "yes" | "no" | null
 ): KnownBlock[] {
   const questionBlocks =
     userResponse === null
       ? buildAskMessage(targetDate, formattedDate)
-      : buildAskConfirmation(targetDate, formattedDate, userResponse);
+      : buildAskConfirmation(targetDate, formattedDate, userResponse, showLunchQuestion, userLunchResponse);
 
   return [
     ...buildSummaryMessage(summaryData),

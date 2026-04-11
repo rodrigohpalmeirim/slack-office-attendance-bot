@@ -5,6 +5,7 @@ import {
   getConfig,
   getTargetUsers,
   getTargetUsersForWeekday,
+  getLunchUserIds,
   getResponseForUserDate,
   getResponsesForDate,
   upsertResponse,
@@ -64,10 +65,20 @@ export function startScheduler(app: App): void {
             ...allTargetIds.filter((id) => !respondedIds.has(id)),
           ];
 
+          const lunchUserIds = getLunchUserIds();
+          const showLunchQuestion = lunchUserIds.includes(user.slack_user_id) && user.lunch_enabled !== 0;
+
           const { ts, channelId } = await sendDm(
             app.client,
             user.slack_user_id,
-            buildCombinedMessage(targetDate, formattedDate, { targetDate, formattedDate, coming, notComing, noResponse }, null),
+            buildCombinedMessage(
+              targetDate,
+              formattedDate,
+              { targetDate, formattedDate, coming, notComing, noResponse, lunchBringing: [], lunchNotBringing: [] },
+              null,
+              showLunchQuestion,
+              null
+            ),
             `Are you coming to the office on ${formattedDate}?`
           );
 

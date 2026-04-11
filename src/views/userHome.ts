@@ -7,6 +7,8 @@ export interface UserHomeData {
   isTarget: boolean;
   activeDays: number[];
   userActiveDaysOverride: number[] | null; // null means all office days
+  isLunchUser: boolean;
+  lunchEnabled: boolean;
 }
 
 const DAY_NAMES: Record<number, string> = {
@@ -17,6 +19,11 @@ const DAY_NAMES: Record<number, string> = {
 const ENABLED_OPTION = {
   text: { type: "mrkdwn" as const, text: "Receive daily attendance messages" },
   value: "enabled",
+};
+
+const LUNCH_ENABLED_OPTION = {
+  text: { type: "mrkdwn" as const, text: "Include me in the lunch question" },
+  value: "lunch_enabled",
 };
 
 /**
@@ -93,6 +100,27 @@ export function buildUserPreferenceBlocks(data: UserHomeData, notTargetMessage?:
       ],
     },
     ...dayBlocks,
+    ...(data.isLunchUser
+      ? [
+          { type: "divider" as const },
+          {
+            type: "section",
+            text: { type: "mrkdwn", text: "*Lunch*" },
+          },
+          {
+            type: "actions",
+            block_id: "user_lunch_enabled_block",
+            elements: [
+              {
+                type: "checkboxes",
+                action_id: "user_toggle_lunch_enabled",
+                options: [LUNCH_ENABLED_OPTION],
+                ...(data.lunchEnabled ? { initial_options: [LUNCH_ENABLED_OPTION] } : {}),
+              },
+            ],
+          },
+        ]
+      : []),
     { type: "divider" },
     {
       type: "section",

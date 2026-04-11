@@ -9,6 +9,7 @@ import {
   setTargetUsers,
   getAdminIds,
   getTargetUserIds,
+  getLunchUserIds,
   upsertUser,
   getUser,
   getConfig,
@@ -36,13 +37,25 @@ async function updateAllLiveSummaries(client: WebClient, targetDate: string): Pr
     ...allTargetIds.filter((id) => !respondedIds.has(id)),
   ];
 
+  const lunchUserIds = getLunchUserIds();
+  const lunchBringing = allResponses
+    .filter((r) => r.lunch_response === "yes" && lunchUserIds.includes(r.slack_user_id))
+    .map((r) => r.slack_user_id);
+  const lunchNotBringing = allResponses
+    .filter((r) => r.lunch_response === "no" && lunchUserIds.includes(r.slack_user_id))
+    .map((r) => r.slack_user_id);
+
   const formattedDate = formatDateForDisplay(targetDate);
-  const summaryData = { targetDate, formattedDate, coming, notComing, noResponse };
+  const summaryData = { targetDate, formattedDate, coming, notComing, noResponse, lunchBringing, lunchNotBringing };
   const responseMap = new Map(allResponses.map((r) => [r.slack_user_id, r.response as "yes" | "no" | null]));
+  const lunchResponseMap = new Map(allResponses.map((r) => [r.slack_user_id, r.lunch_response as "yes" | "no" | null]));
 
   for (const summary of getLiveSummariesForDate(targetDate)) {
     const userResponse = responseMap.get(summary.slack_user_id) ?? null;
-    const blocks = buildCombinedMessage(targetDate, formattedDate, summaryData, userResponse);
+    const userLunchResponse = lunchResponseMap.get(summary.slack_user_id) ?? null;
+    const user = getUser(summary.slack_user_id);
+    const showLunchQuestion = lunchUserIds.includes(summary.slack_user_id) && user?.lunch_enabled !== 0;
+    const blocks = buildCombinedMessage(targetDate, formattedDate, summaryData, userResponse, showLunchQuestion, userLunchResponse);
     try {
       await updateMessage(client, summary.channel_id, summary.message_ts, blocks, `Live attendance for ${formattedDate}`);
     } catch (err) {
@@ -75,7 +88,7 @@ export function registerActionHandlers(app: App): void {
   });
 
   // --- Change Response ---
-  // Null the response so the user moves back to "no answer" in the summary,
+  // Null the response (and lunch response) so the user moves back to "no answer",
   // then update all messages (their own will show buttons again).
 
   app.action("attendance_change", async ({ ack, body, client }) => {
@@ -84,7 +97,39 @@ export function registerActionHandlers(app: App): void {
     const targetDate = action.type === "button" ? action.value! : "";
     const userId = body.user.id;
 
-    upsertResponse(userId, targetDate, { response: null, responded_at: null });
+    upsertResponse(userId, targetDate, { response: null, responded_at: null, lunch_response: null });
+    await updateAllLiveSummaries(client, targetDate);
+  });
+
+  // --- Lunch Yes/No/Change ---
+
+  app.action("lunch_yes", async ({ ack, body, client }) => {
+    await ack();
+    const action = (body as BlockAction).actions[0];
+    const targetDate = action.type === "button" ? action.value! : "";
+    const userId = body.user.id;
+
+    upsertResponse(userId, targetDate, { lunch_response: "yes" });
+    await updateAllLiveSummaries(client, targetDate);
+  });
+
+  app.action("lunch_no", async ({ ack, body, client }) => {
+    await ack();
+    const action = (body as BlockAction).actions[0];
+    const targetDate = action.type === "button" ? action.value! : "";
+    const userId = body.user.id;
+
+    upsertResponse(userId, targetDate, { lunch_response: "no" });
+    await updateAllLiveSummaries(client, targetDate);
+  });
+
+  app.action("lunch_change", async ({ ack, body, client }) => {
+    await ack();
+    const action = (body as BlockAction).actions[0];
+    const targetDate = action.type === "button" ? action.value! : "";
+    const userId = body.user.id;
+
+    upsertResponse(userId, targetDate, { lunch_response: null });
     await updateAllLiveSummaries(client, targetDate);
   });
 
@@ -106,9 +151,11 @@ export function registerActionHandlers(app: App): void {
     const config = getConfig();
     const user = getUser(userId);
     const activeDays: number[] = JSON.parse(config.active_days);
+    const lunchUserIds = getLunchUserIds();
     const view = buildAdminHomeView({
       adminUserIds: newAdminIds,
       targetUserIds: getTargetUserIds(),
+      lunchUserIds,
       activeDays,
       defaultAskTime: config.default_ask_time,
       userPrefs: {
@@ -120,6 +167,8 @@ export function registerActionHandlers(app: App): void {
         userActiveDaysOverride: user?.active_days_override
           ? (JSON.parse(user.active_days_override) as number[])
           : null,
+        isLunchUser: lunchUserIds.includes(userId),
+        lunchEnabled: user?.lunch_enabled !== 0,
       },
     });
     await client.views.publish({ user_id: userId, view });
@@ -139,6 +188,14 @@ export function registerActionHandlers(app: App): void {
       const tz = await getUserTimezone(client, userId);
       upsertUser(userId, { timezone: tz, timezone_updated_at: new Date().toISOString() });
     }
+  });
+
+  app.action("admin_select_lunch_users", async ({ ack, body }) => {
+    await ack();
+    const action = (body as BlockAction).actions[0];
+    if (action.type !== "multi_users_select") return;
+
+    updateConfig({ lunch_user_ids: JSON.stringify(action.selected_users || []) });
   });
 
   app.action("admin_select_active_days", async ({ ack, body }) => {
@@ -194,6 +251,16 @@ export function registerActionHandlers(app: App): void {
     upsertUser(userId, { active_days_override: isAllSelected ? null : JSON.stringify(selected) });
   });
 
+  app.action("user_toggle_lunch_enabled", async ({ ack, body }) => {
+    await ack();
+    const userId = body.user.id;
+    const action = (body as BlockAction).actions[0];
+    if (action.type === "checkboxes") {
+      const enabled = (action.selected_options || []).some((opt) => opt.value === "lunch_enabled");
+      upsertUser(userId, { lunch_enabled: enabled ? 1 : 0 });
+    }
+  });
+
   app.action("user_reset_preferences", async ({ ack, body, client }) => {
     await ack();
     const userId = body.user.id;
@@ -201,6 +268,7 @@ export function registerActionHandlers(app: App): void {
 
     const config = getConfig();
     const user = getUser(userId);
+    const lunchUserIds = getLunchUserIds();
     const view = buildUserHomeView({
       defaultAskTime: config.default_ask_time,
       customAskTime: null,
@@ -208,6 +276,8 @@ export function registerActionHandlers(app: App): void {
       isTarget: user?.is_target === 1,
       activeDays: JSON.parse(config.active_days),
       userActiveDaysOverride: null,
+      isLunchUser: lunchUserIds.includes(userId),
+      lunchEnabled: user?.lunch_enabled !== 0,
     });
     await client.views.publish({ user_id: userId, view });
   });

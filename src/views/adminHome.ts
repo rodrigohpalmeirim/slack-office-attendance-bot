@@ -4,6 +4,7 @@ import { buildUserPreferenceBlocks, type UserHomeData } from "./userHome.js";
 export interface AdminHomeData {
   adminUserIds: string[];
   targetUserIds: string[];
+  lunchUserIds: string[];
   activeDays: number[];
   defaultAskTime: string;
   userPrefs: UserHomeData;
@@ -76,6 +77,17 @@ export function buildAdminHomeView(data: AdminHomeData): View {
           action_id: "admin_set_ask_time",
           initial_time: data.defaultAskTime,
           placeholder: { type: "plain_text", text: "Select time" },
+        },
+      },
+      { type: "divider" },
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "*Who should be asked about bringing lunch?*" },
+        accessory: {
+          type: "multi_users_select",
+          action_id: "admin_select_lunch_users",
+          placeholder: { type: "plain_text", text: "Select teammates" },
+          ...(data.lunchUserIds.length > 0 ? { initial_users: data.lunchUserIds } : {}),
         },
       },
       { type: "divider" },
