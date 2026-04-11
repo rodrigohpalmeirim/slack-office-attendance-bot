@@ -41,3 +41,10 @@ export function formatDateForDisplay(dateStr: string): string {
   const dt = DateTime.fromISO(dateStr);
   return dt.toFormat("EEEE, MMMM d");
 }
+
+/**
+ * Return the ISO weekday (1=Monday…7=Sunday) for a YYYY-MM-DD date string.
+ */
+export function getWeekdayFromDate(dateStr: string): number {
+  return DateTime.fromISO(dateStr).weekday;
+}

@@ -55,6 +55,11 @@ db.run(`
 db.run("CREATE INDEX IF NOT EXISTS idx_responses_target_date ON responses(target_date)");
 db.run("CREATE INDEX IF NOT EXISTS idx_responses_user_date ON responses(slack_user_id, target_date)");
 
+// Migration: add active_days_override column if it doesn't exist
+try {
+  db.run("ALTER TABLE users ADD COLUMN active_days_override TEXT");
+} catch {}
+
 // Stores the live summary message ts/channel per user per date so it can be updated in-place
 db.run(`
   CREATE TABLE IF NOT EXISTS live_summaries (
@@ -92,6 +97,7 @@ export interface User {
   enabled: number;
   timezone: string | null;
   timezone_updated_at: string | null;
+  active_days_override: string | null; // JSON number[], null means all active days
 }
 
 export interface Response {
@@ -159,6 +165,17 @@ export function getTargetUsers(): User[] {
 
 export function getAllTargetUsers(): User[] {
   return db.query<User, []>("SELECT * FROM users WHERE is_target = 1").all();
+}
+
+/**
+ * Returns enabled target users who should receive a notification on the given
+ * ISO weekday (1=Monday…7=Sunday). Users with no override receive on all days.
+ */
+export function getTargetUsersForWeekday(weekday: number): User[] {
+  return getTargetUsers().filter((u) => {
+    if (!u.active_days_override) return true;
+    return (JSON.parse(u.active_days_override) as number[]).includes(weekday);
+  });
 }
 
 export function getTargetUserIds(): string[] {

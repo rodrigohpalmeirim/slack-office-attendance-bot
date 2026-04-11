@@ -4,7 +4,7 @@ import { DateTime } from "luxon";
 import {
   getConfig,
   getTargetUsers,
-  getAllTargetUsers,
+  getTargetUsersForWeekday,
   getResponseForUserDate,
   getResponsesForDate,
   upsertResponse,
@@ -34,9 +34,15 @@ export function startScheduler(app: App): void {
         const now = getCurrentTimeInTimezone(tz);
         const askTime = user.custom_ask_time || config.default_ask_time;
 
-        // Send the question if tomorrow is an office day
+        // Send the question if tomorrow is a global office day
         const tomorrow = DateTime.now().setZone(tz).plus({ days: 1 });
         if (!isTodayActiveDay(tomorrow.weekday, activeDays)) continue;
+
+        // Skip if this user has opted out of that specific day
+        if (user.active_days_override) {
+          const userDays: number[] = JSON.parse(user.active_days_override);
+          if (!userDays.includes(tomorrow.weekday)) continue;
+        }
 
         const targetDate = tomorrow.toFormat("yyyy-MM-dd");
 
@@ -46,9 +52,9 @@ export function startScheduler(app: App): void {
         try {
           const formattedDate = formatDateForDisplay(targetDate);
 
-          // Build initial summary (everyone unanswered at the time of sending)
+          // Build initial summary — only users subscribed for this day
           const allResponses = getResponsesForDate(targetDate);
-          const allTargetIds = getAllTargetUsers().map((u) => u.slack_user_id);
+          const allTargetIds = getTargetUsersForWeekday(tomorrow.weekday).map((u) => u.slack_user_id);
           const respondedIds = new Set(allResponses.map((r) => r.slack_user_id));
 
           const coming = allResponses.filter((r) => r.response === "yes").map((r) => r.slack_user_id);

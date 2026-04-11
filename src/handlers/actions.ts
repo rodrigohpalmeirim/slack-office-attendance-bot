@@ -3,7 +3,7 @@ import type { WebClient } from "@slack/web-api";
 import {
   upsertResponse,
   getResponsesForDate,
-  getAllTargetUsers,
+  getTargetUsersForWeekday,
   getLiveSummariesForDate,
   updateConfig,
   setTargetUsers,
@@ -14,7 +14,7 @@ import {
   getConfig,
 } from "../db.js";
 import { updateMessage, getUserTimezone } from "../utils/slack.js";
-import { formatDateForDisplay } from "../utils/dates.js";
+import { formatDateForDisplay, getWeekdayFromDate } from "../utils/dates.js";
 import { buildCombinedMessage } from "../views/combinedMessage.js";
 import { buildAdminHomeView } from "../views/adminHome.js";
 import { buildUserHomeView } from "../views/userHome.js";
@@ -26,7 +26,7 @@ import { buildUserHomeView } from "../views/userHome.js";
  */
 async function updateAllLiveSummaries(client: WebClient, targetDate: string): Promise<void> {
   const allResponses = getResponsesForDate(targetDate);
-  const allTargetIds = getAllTargetUsers().map((u) => u.slack_user_id);
+  const allTargetIds = getTargetUsersForWeekday(getWeekdayFromDate(targetDate)).map((u) => u.slack_user_id);
   const respondedIds = new Set(allResponses.map((r) => r.slack_user_id));
 
   const coming = allResponses.filter((r) => r.response === "yes").map((r) => r.slack_user_id);
@@ -105,16 +105,21 @@ export function registerActionHandlers(app: App): void {
     // Re-publish so the selector reflects the corrected list (in case of self-removal attempt)
     const config = getConfig();
     const user = getUser(userId);
+    const activeDays: number[] = JSON.parse(config.active_days);
     const view = buildAdminHomeView({
       adminUserIds: newAdminIds,
       targetUserIds: getTargetUserIds(),
-      activeDays: JSON.parse(config.active_days),
+      activeDays,
       defaultAskTime: config.default_ask_time,
       userPrefs: {
         defaultAskTime: config.default_ask_time,
         customAskTime: user?.custom_ask_time ?? null,
         enabled: user?.enabled !== 0,
         isTarget: user?.is_target === 1,
+        activeDays,
+        userActiveDaysOverride: user?.active_days_override
+          ? (JSON.parse(user.active_days_override) as number[])
+          : null,
       },
     });
     await client.views.publish({ user_id: userId, view });
@@ -174,10 +179,25 @@ export function registerActionHandlers(app: App): void {
     }
   });
 
+  app.action("user_select_active_days", async ({ ack, body }) => {
+    await ack();
+    const userId = body.user.id;
+    const action = (body as BlockAction).actions[0];
+    if (action.type !== "checkboxes") return;
+
+    const config = getConfig();
+    const activeDays: number[] = JSON.parse(config.active_days);
+    const selected = (action.selected_options || []).map((opt) => parseInt(opt.value!));
+
+    // null means "all days" — avoids stale data if admin later adds office days
+    const isAllSelected = activeDays.every((d) => selected.includes(d)) && selected.length === activeDays.length;
+    upsertUser(userId, { active_days_override: isAllSelected ? null : JSON.stringify(selected) });
+  });
+
   app.action("user_reset_preferences", async ({ ack, body, client }) => {
     await ack();
     const userId = body.user.id;
-    upsertUser(userId, { custom_ask_time: null });
+    upsertUser(userId, { custom_ask_time: null, active_days_override: null });
 
     const config = getConfig();
     const user = getUser(userId);
@@ -186,6 +206,8 @@ export function registerActionHandlers(app: App): void {
       customAskTime: null,
       enabled: user?.enabled !== 0,
       isTarget: user?.is_target === 1,
+      activeDays: JSON.parse(config.active_days),
+      userActiveDaysOverride: null,
     });
     await client.views.publish({ user_id: userId, view });
   });

@@ -16,28 +16,36 @@ export function registerAppHomeHandler(app: App): void {
 
     const config = getConfig();
 
+    const user = getUser(userId);
+    const activeDays: number[] = JSON.parse(config.active_days);
+    const userActiveDaysOverride = user?.active_days_override
+      ? (JSON.parse(user.active_days_override) as number[])
+      : null;
+
     if (isAdmin(userId)) {
-      const user = getUser(userId);
       const view = buildAdminHomeView({
         adminUserIds: getAdminIds(),
         targetUserIds: getTargetUserIds(),
-        activeDays: JSON.parse(config.active_days),
+        activeDays,
         defaultAskTime: config.default_ask_time,
         userPrefs: {
           defaultAskTime: config.default_ask_time,
           customAskTime: user?.custom_ask_time ?? null,
           enabled: user?.enabled !== 0,
           isTarget: user?.is_target === 1,
+          activeDays,
+          userActiveDaysOverride,
         },
       });
       await client.views.publish({ user_id: userId, view });
     } else {
-      const user = getUser(userId);
       const view = buildUserHomeView({
         defaultAskTime: config.default_ask_time,
         customAskTime: user?.custom_ask_time ?? null,
         enabled: user?.enabled !== 0,
         isTarget: user?.is_target === 1,
+        activeDays,
+        userActiveDaysOverride,
       });
       await client.views.publish({ user_id: userId, view });
     }

@@ -5,7 +5,14 @@ export interface UserHomeData {
   customAskTime: string | null;
   enabled: boolean;
   isTarget: boolean;
+  activeDays: number[];
+  userActiveDaysOverride: number[] | null; // null means all office days
 }
+
+const DAY_NAMES: Record<number, string> = {
+  1: "Monday", 2: "Tuesday", 3: "Wednesday",
+  4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday",
+};
 
 const ENABLED_OPTION = {
   text: { type: "mrkdwn" as const, text: "Receive daily attendance messages" },
@@ -28,6 +35,37 @@ export function buildUserPreferenceBlocks(data: UserHomeData, notTargetMessage?:
       },
     ];
   }
+
+  const dayOptions = data.activeDays.map((d) => ({
+    text: { type: "plain_text" as const, text: DAY_NAMES[d] ?? `Day ${d}` },
+    value: String(d),
+  }));
+
+  // Which days to show as selected: override if set, otherwise all active days
+  const selectedDays = data.userActiveDaysOverride ?? data.activeDays;
+  const selectedDayOptions = dayOptions.filter((opt) => selectedDays.includes(parseInt(opt.value)));
+
+  const dayBlocks: any[] = data.activeDays.length > 0
+    ? [
+        { type: "divider" },
+        {
+          type: "section",
+          text: { type: "mrkdwn", text: "*On which office days do you want to be asked?*" },
+        },
+        {
+          type: "actions",
+          block_id: "user_active_days_block",
+          elements: [
+            {
+              type: "checkboxes",
+              action_id: "user_select_active_days",
+              options: dayOptions,
+              ...(selectedDayOptions.length > 0 ? { initial_options: selectedDayOptions } : {}),
+            },
+          ],
+        },
+      ]
+    : [];
 
   return [
     {
@@ -54,6 +92,7 @@ export function buildUserPreferenceBlocks(data: UserHomeData, notTargetMessage?:
         },
       ],
     },
+    ...dayBlocks,
     { type: "divider" },
     {
       type: "section",
@@ -74,11 +113,11 @@ export function buildUserPreferenceBlocks(data: UserHomeData, notTargetMessage?:
       elements: [
         {
           type: "button",
-          text: { type: "plain_text", text: "Reset to default time", emoji: true },
+          text: { type: "plain_text", text: "Reset all preferences", emoji: true },
           action_id: "user_reset_preferences",
           confirm: {
             title: { type: "plain_text", text: "Reset preferences?" },
-            text: { type: "mrkdwn", text: "This will clear your custom ask time." },
+            text: { type: "mrkdwn", text: "This will reset your ask time and day selection to defaults." },
             confirm: { type: "plain_text", text: "Reset" },
             deny: { type: "plain_text", text: "Cancel" },
           },
