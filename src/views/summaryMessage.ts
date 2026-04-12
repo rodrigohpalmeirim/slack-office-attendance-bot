@@ -46,7 +46,7 @@ export function buildSummaryMessage(data: SummaryData): KnownBlock[] {
       parts.push(`Bringing lunch: ${data.lunchBringing.map((id) => `<@${id}>`).join(", ")}`);
     }
     if (data.lunchNotBringing.length > 0) {
-      parts.push(`Not bringing: ${data.lunchNotBringing.map((id) => `<@${id}>`).join(", ")}`);
+      parts.push(`Not bringing lunch: ${data.lunchNotBringing.map((id) => `<@${id}>`).join(", ")}`);
     }
     blocks.push({
       type: "context",
