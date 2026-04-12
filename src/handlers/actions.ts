@@ -9,17 +9,13 @@ import {
   getLiveSummariesForDate,
   updateConfig,
   setTargetUsers,
-  getAdminIds,
-  getTargetUserIds,
   upsertUser,
-  getUser,
   getConfig,
 } from "../db.js";
 import { updateMessage, getUserTimezone } from "../utils/slack.js";
 import { formatDateForDisplay, getWeekdayFromDate } from "../utils/dates.js";
 import { buildCombinedMessage } from "../views/combinedMessage.js";
-import { buildAdminHomeView } from "../views/adminHome.js";
-import { buildUserHomeView } from "../views/userHome.js";
+import { refreshHomeView } from "./appHome.js";
 
 /**
  * Rebuild the combined message for every user who has received it for the
@@ -144,36 +140,15 @@ export function registerActionHandlers(app: App): void {
     // Prevent the acting admin from removing themselves
     const selected = action.selected_users || [];
     const newAdminIds = selected.includes(userId) ? selected : [userId, ...selected];
-
     updateConfig({ admin_user_ids: JSON.stringify(newAdminIds) });
 
     // Re-publish so the selector reflects the corrected list (in case of self-removal attempt)
-    const config = getConfig();
-    const user = getUser(userId);
-    const activeDays: number[] = JSON.parse(config.active_days);
-    const lunchTargetUserIds = getLunchTargetUserIds();
-    const view = buildAdminHomeView({
-      adminUserIds: newAdminIds,
-      targetUserIds: getTargetUserIds(),
-      lunchUserIds: lunchTargetUserIds,
-      activeDays,
-      defaultAskTime: config.default_ask_time,
-      userPrefs: {
-        defaultAskTime: config.default_ask_time,
-        customAskTime: user?.custom_ask_time ?? null,
-        isOptedIn: user?.is_target === 1,
-        activeDays,
-        userActiveDaysOverride: user?.active_days_override
-          ? (JSON.parse(user.active_days_override) as number[])
-          : null,
-        isLunchOptedIn: user?.is_lunch_target !== 0,
-      },
-    });
-    await client.views.publish({ user_id: userId, view });
+    await refreshHomeView(client, userId);
   });
 
   app.action("admin_select_target_users", async ({ ack, body, client }) => {
     await ack();
+    const userId = body.user.id;
     const action = (body as BlockAction).actions[0];
     if (action.type !== "multi_users_select") return;
 
@@ -182,35 +157,43 @@ export function registerActionHandlers(app: App): void {
 
     // Fetch and cache timezones immediately so the scheduler uses the correct
     // local time for each user rather than falling back to UTC.
-    for (const userId of selectedUsers) {
-      const tz = await getUserTimezone(client, userId);
-      upsertUser(userId, { timezone: tz, timezone_updated_at: new Date().toISOString() });
+    for (const uid of selectedUsers) {
+      const tz = await getUserTimezone(client, uid);
+      upsertUser(uid, { timezone: tz, timezone_updated_at: new Date().toISOString() });
     }
+
+    await refreshHomeView(client, userId);
   });
 
-  app.action("admin_select_lunch_users", async ({ ack, body }) => {
+  app.action("admin_select_lunch_users", async ({ ack, body, client }) => {
     await ack();
+    const userId = body.user.id;
     const action = (body as BlockAction).actions[0];
     if (action.type !== "multi_users_select") return;
 
     setLunchTargetUsers(action.selected_users || []);
+    await refreshHomeView(client, userId);
   });
 
-  app.action("admin_select_active_days", async ({ ack, body }) => {
+  app.action("admin_select_active_days", async ({ ack, body, client }) => {
     await ack();
+    const userId = body.user.id;
     const action = (body as BlockAction).actions[0];
     if (action.type === "checkboxes") {
       const days = (action.selected_options || []).map((opt) => parseInt(opt.value!));
       updateConfig({ active_days: JSON.stringify(days) });
     }
+    await refreshHomeView(client, userId);
   });
 
-  app.action("admin_set_ask_time", async ({ ack, body }) => {
+  app.action("admin_set_ask_time", async ({ ack, body, client }) => {
     await ack();
+    const userId = body.user.id;
     const action = (body as BlockAction).actions[0];
     if (action.type === "timepicker" && action.selected_time) {
       updateConfig({ default_ask_time: action.selected_time });
     }
+    await refreshHomeView(client, userId);
   });
 
   // --- User Preference Actions ---
@@ -224,23 +207,10 @@ export function registerActionHandlers(app: App): void {
     const optedIn = (action.selected_options || []).some((opt) => opt.value === "opted_in");
     // Opting out of attendance also removes from lunch
     upsertUser(userId, { is_target: optedIn ? 1 : 0, ...(optedIn ? {} : { is_lunch_target: 0 }) });
-
-    const config = getConfig();
-    const user = getUser(userId);
-    const view = buildUserHomeView({
-      defaultAskTime: config.default_ask_time,
-      customAskTime: user?.custom_ask_time ?? null,
-      isOptedIn: optedIn,
-      activeDays: JSON.parse(config.active_days),
-      userActiveDaysOverride: user?.active_days_override
-        ? (JSON.parse(user.active_days_override) as number[])
-        : null,
-      isLunchOptedIn: optedIn && user?.is_lunch_target !== 0,
-    });
-    await client.views.publish({ user_id: userId, view });
+    await refreshHomeView(client, userId);
   });
 
-  app.action("user_toggle_lunch_target", async ({ ack, body }) => {
+  app.action("user_toggle_lunch_target", async ({ ack, body, client }) => {
     await ack();
     const userId = body.user.id;
     const action = (body as BlockAction).actions[0];
@@ -248,18 +218,20 @@ export function registerActionHandlers(app: App): void {
       const optedIn = (action.selected_options || []).some((opt) => opt.value === "lunch_opted_in");
       upsertUser(userId, { is_lunch_target: optedIn ? 1 : 0 });
     }
+    await refreshHomeView(client, userId);
   });
 
-  app.action("user_set_ask_time", async ({ ack, body }) => {
+  app.action("user_set_ask_time", async ({ ack, body, client }) => {
     await ack();
     const userId = body.user.id;
     const action = (body as BlockAction).actions[0];
     if (action.type === "timepicker" && action.selected_time) {
       upsertUser(userId, { custom_ask_time: action.selected_time });
     }
+    await refreshHomeView(client, userId);
   });
 
-  app.action("user_select_active_days", async ({ ack, body }) => {
+  app.action("user_select_active_days", async ({ ack, body, client }) => {
     await ack();
     const userId = body.user.id;
     const action = (body as BlockAction).actions[0];
@@ -272,23 +244,13 @@ export function registerActionHandlers(app: App): void {
     // null means "all days" — avoids stale data if admin later adds office days
     const isAllSelected = activeDays.every((d) => selected.includes(d)) && selected.length === activeDays.length;
     upsertUser(userId, { active_days_override: isAllSelected ? null : JSON.stringify(selected) });
+    await refreshHomeView(client, userId);
   });
 
   app.action("user_reset_preferences", async ({ ack, body, client }) => {
     await ack();
     const userId = body.user.id;
     upsertUser(userId, { custom_ask_time: null, active_days_override: null });
-
-    const config = getConfig();
-    const user = getUser(userId);
-    const view = buildUserHomeView({
-      defaultAskTime: config.default_ask_time,
-      customAskTime: null,
-      isOptedIn: user?.is_target === 1,
-      activeDays: JSON.parse(config.active_days),
-      userActiveDaysOverride: null,
-      isLunchOptedIn: user?.is_lunch_target !== 0,
-    });
-    await client.views.publish({ user_id: userId, view });
+    await refreshHomeView(client, userId);
   });
 }
