@@ -4,12 +4,13 @@ import {
   upsertResponse,
   getResponsesForDate,
   getTargetUsersForWeekday,
+  getLunchTargetUserIds,
+  setLunchTargetUsers,
   getLiveSummariesForDate,
   updateConfig,
   setTargetUsers,
   getAdminIds,
   getTargetUserIds,
-  getLunchUserIds,
   upsertUser,
   getUser,
   getConfig,
@@ -37,12 +38,12 @@ async function updateAllLiveSummaries(client: WebClient, targetDate: string): Pr
     ...allTargetIds.filter((id) => !respondedIds.has(id)),
   ];
 
-  const lunchUserIds = getLunchUserIds();
+  const lunchTargetIds = new Set(getLunchTargetUserIds());
   const lunchBringing = allResponses
-    .filter((r) => r.lunch_response === "yes" && lunchUserIds.includes(r.slack_user_id))
+    .filter((r) => r.lunch_response === "yes" && lunchTargetIds.has(r.slack_user_id))
     .map((r) => r.slack_user_id);
   const lunchNotBringing = allResponses
-    .filter((r) => r.lunch_response === "no" && lunchUserIds.includes(r.slack_user_id))
+    .filter((r) => r.lunch_response === "no" && lunchTargetIds.has(r.slack_user_id))
     .map((r) => r.slack_user_id);
 
   const formattedDate = formatDateForDisplay(targetDate);
@@ -53,8 +54,7 @@ async function updateAllLiveSummaries(client: WebClient, targetDate: string): Pr
   for (const summary of getLiveSummariesForDate(targetDate)) {
     const userResponse = responseMap.get(summary.slack_user_id) ?? null;
     const userLunchResponse = lunchResponseMap.get(summary.slack_user_id) ?? null;
-    const user = getUser(summary.slack_user_id);
-    const showLunchQuestion = lunchUserIds.includes(summary.slack_user_id) && user?.lunch_enabled !== 0;
+    const showLunchQuestion = lunchTargetIds.has(summary.slack_user_id);
     const blocks = buildCombinedMessage(targetDate, formattedDate, summaryData, userResponse, showLunchQuestion, userLunchResponse);
     try {
       await updateMessage(client, summary.channel_id, summary.message_ts, blocks, `Live attendance for ${formattedDate}`);
@@ -151,24 +151,22 @@ export function registerActionHandlers(app: App): void {
     const config = getConfig();
     const user = getUser(userId);
     const activeDays: number[] = JSON.parse(config.active_days);
-    const lunchUserIds = getLunchUserIds();
+    const lunchTargetUserIds = getLunchTargetUserIds();
     const view = buildAdminHomeView({
       adminUserIds: newAdminIds,
       targetUserIds: getTargetUserIds(),
-      lunchUserIds,
+      lunchUserIds: lunchTargetUserIds,
       activeDays,
       defaultAskTime: config.default_ask_time,
       userPrefs: {
         defaultAskTime: config.default_ask_time,
         customAskTime: user?.custom_ask_time ?? null,
-        enabled: user?.enabled !== 0,
-        isTarget: user?.is_target === 1,
+        isOptedIn: user?.is_target === 1,
         activeDays,
         userActiveDaysOverride: user?.active_days_override
           ? (JSON.parse(user.active_days_override) as number[])
           : null,
-        isLunchUser: lunchUserIds.includes(userId),
-        lunchEnabled: user?.lunch_enabled !== 0,
+        isLunchOptedIn: user?.is_lunch_target !== 0,
       },
     });
     await client.views.publish({ user_id: userId, view });
@@ -195,7 +193,7 @@ export function registerActionHandlers(app: App): void {
     const action = (body as BlockAction).actions[0];
     if (action.type !== "multi_users_select") return;
 
-    updateConfig({ lunch_user_ids: JSON.stringify(action.selected_users || []) });
+    setLunchTargetUsers(action.selected_users || []);
   });
 
   app.action("admin_select_active_days", async ({ ack, body }) => {
@@ -217,13 +215,38 @@ export function registerActionHandlers(app: App): void {
 
   // --- User Preference Actions ---
 
-  app.action("user_toggle_enabled", async ({ ack, body }) => {
+  app.action("user_toggle_target", async ({ ack, body, client }) => {
+    await ack();
+    const userId = body.user.id;
+    const action = (body as BlockAction).actions[0];
+    if (action.type !== "checkboxes") return;
+
+    const optedIn = (action.selected_options || []).some((opt) => opt.value === "opted_in");
+    // Opting out of attendance also removes from lunch
+    upsertUser(userId, { is_target: optedIn ? 1 : 0, ...(optedIn ? {} : { is_lunch_target: 0 }) });
+
+    const config = getConfig();
+    const user = getUser(userId);
+    const view = buildUserHomeView({
+      defaultAskTime: config.default_ask_time,
+      customAskTime: user?.custom_ask_time ?? null,
+      isOptedIn: optedIn,
+      activeDays: JSON.parse(config.active_days),
+      userActiveDaysOverride: user?.active_days_override
+        ? (JSON.parse(user.active_days_override) as number[])
+        : null,
+      isLunchOptedIn: optedIn && user?.is_lunch_target !== 0,
+    });
+    await client.views.publish({ user_id: userId, view });
+  });
+
+  app.action("user_toggle_lunch_target", async ({ ack, body }) => {
     await ack();
     const userId = body.user.id;
     const action = (body as BlockAction).actions[0];
     if (action.type === "checkboxes") {
-      const enabled = (action.selected_options || []).some((opt) => opt.value === "enabled");
-      upsertUser(userId, { enabled: enabled ? 1 : 0 });
+      const optedIn = (action.selected_options || []).some((opt) => opt.value === "lunch_opted_in");
+      upsertUser(userId, { is_lunch_target: optedIn ? 1 : 0 });
     }
   });
 
@@ -251,16 +274,6 @@ export function registerActionHandlers(app: App): void {
     upsertUser(userId, { active_days_override: isAllSelected ? null : JSON.stringify(selected) });
   });
 
-  app.action("user_toggle_lunch_enabled", async ({ ack, body }) => {
-    await ack();
-    const userId = body.user.id;
-    const action = (body as BlockAction).actions[0];
-    if (action.type === "checkboxes") {
-      const enabled = (action.selected_options || []).some((opt) => opt.value === "lunch_enabled");
-      upsertUser(userId, { lunch_enabled: enabled ? 1 : 0 });
-    }
-  });
-
   app.action("user_reset_preferences", async ({ ack, body, client }) => {
     await ack();
     const userId = body.user.id;
@@ -268,16 +281,13 @@ export function registerActionHandlers(app: App): void {
 
     const config = getConfig();
     const user = getUser(userId);
-    const lunchUserIds = getLunchUserIds();
     const view = buildUserHomeView({
       defaultAskTime: config.default_ask_time,
       customAskTime: null,
-      enabled: user?.enabled !== 0,
-      isTarget: user?.is_target === 1,
+      isOptedIn: user?.is_target === 1,
       activeDays: JSON.parse(config.active_days),
       userActiveDaysOverride: null,
-      isLunchUser: lunchUserIds.includes(userId),
-      lunchEnabled: user?.lunch_enabled !== 0,
+      isLunchOptedIn: user?.is_lunch_target !== 0,
     });
     await client.views.publish({ user_id: userId, view });
   });

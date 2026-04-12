@@ -32,10 +32,7 @@ export function buildAdminHomeView(data: AdminHomeData): View {
         type: "header",
         text: { type: "plain_text", text: "Your Preferences", emoji: true },
       },
-      ...buildUserPreferenceBlocks(
-        data.userPrefs,
-        "You're not on the attendance list. Add yourself using the teammate selector below."
-      ),
+      ...buildUserPreferenceBlocks(data.userPrefs),
       {
         type: "header",
         text: { type: "plain_text", text: "Admin Settings", emoji: true },

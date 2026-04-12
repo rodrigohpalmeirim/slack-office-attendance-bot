@@ -5,7 +5,6 @@ import {
   getConfig,
   getTargetUsers,
   getTargetUsersForWeekday,
-  getLunchUserIds,
   getResponseForUserDate,
   getResponsesForDate,
   upsertResponse,
@@ -65,8 +64,7 @@ export function startScheduler(app: App): void {
             ...allTargetIds.filter((id) => !respondedIds.has(id)),
           ];
 
-          const lunchUserIds = getLunchUserIds();
-          const showLunchQuestion = lunchUserIds.includes(user.slack_user_id) && user.lunch_enabled !== 0;
+          const showLunchQuestion = user.is_lunch_target !== 0;
 
           const { ts, channelId } = await sendDm(
             app.client,

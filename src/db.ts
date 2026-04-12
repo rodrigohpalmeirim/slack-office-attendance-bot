@@ -62,7 +62,10 @@ db.run("CREATE INDEX IF NOT EXISTS idx_responses_user_date ON responses(slack_us
 // Migrations: add columns if they don't exist
 try { db.run("ALTER TABLE users ADD COLUMN active_days_override TEXT"); } catch {}
 try { db.run("ALTER TABLE users ADD COLUMN lunch_enabled INTEGER NOT NULL DEFAULT 1"); } catch {}
+try { db.run("ALTER TABLE users ADD COLUMN is_lunch_target INTEGER NOT NULL DEFAULT 0"); } catch {}
 try { db.run("ALTER TABLE responses ADD COLUMN lunch_response TEXT"); } catch {}
+// Sync: users who had opted out via enabled=0 should have is_target=0
+db.run("UPDATE users SET is_target = 0 WHERE enabled = 0 AND is_target = 1");
 
 // Stores the live summary message ts/channel per user per date so it can be updated in-place
 db.run(`
@@ -103,7 +106,8 @@ export interface User {
   timezone: string | null;
   timezone_updated_at: string | null;
   active_days_override: string | null; // JSON number[], null means all active days
-  lunch_enabled: number;
+  lunch_enabled: number; // deprecated, kept for migration
+  is_lunch_target: number;
 }
 
 export interface Response {
@@ -172,11 +176,23 @@ export function upsertUser(slackUserId: string, fields: Partial<Omit<User, "slac
 }
 
 export function getTargetUsers(): User[] {
-  return db.query<User, []>("SELECT * FROM users WHERE is_target = 1 AND enabled = 1").all();
+  return db.query<User, []>("SELECT * FROM users WHERE is_target = 1").all();
 }
 
-export function getAllTargetUsers(): User[] {
-  return db.query<User, []>("SELECT * FROM users WHERE is_target = 1").all();
+export function getLunchTargetUsers(): User[] {
+  return db.query<User, []>("SELECT * FROM users WHERE is_lunch_target = 1").all();
+}
+
+export function getLunchTargetUserIds(): string[] {
+  return db.query<{ slack_user_id: string }, []>("SELECT slack_user_id FROM users WHERE is_lunch_target = 1").all().map((r) => r.slack_user_id);
+}
+
+export function setLunchTargetUsers(userIds: string[]): void {
+  db.run("UPDATE users SET is_lunch_target = 0");
+  for (const userId of userIds) {
+    // Adding to lunch implicitly opts the user into attendance as well
+    upsertUser(userId, { is_lunch_target: 1, is_target: 1 });
+  }
 }
 
 /**
@@ -246,7 +262,8 @@ export function upsertLiveSummary(slackUserId: string, targetDate: string, messa
 }
 
 export function setTargetUsers(userIds: string[]): void {
-  db.run("UPDATE users SET is_target = 0, updated_at = datetime('now')");
+  // Users removed from attendance are also removed from lunch
+  db.run("UPDATE users SET is_target = 0, is_lunch_target = 0, updated_at = datetime('now')");
   for (const userId of userIds) {
     upsertUser(userId, { is_target: 1 });
   }
