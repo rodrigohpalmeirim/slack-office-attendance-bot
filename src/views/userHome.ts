@@ -39,10 +39,9 @@ export function buildUserPreferenceBlocks(data: UserHomeData): any[] {
 
   const dayBlocks: any[] = data.isOptedIn && data.activeDays.length > 0
     ? [
-        { type: "divider" },
         {
           type: "section",
-          text: { type: "mrkdwn", text: "*On which office days do you want to be asked?*" },
+          text: { type: "mrkdwn", text: "*Which office days do you want to be asked about?*\n_The question is sent the day before._" },
         },
         {
           type: "actions",
@@ -60,7 +59,6 @@ export function buildUserPreferenceBlocks(data: UserHomeData): any[] {
     : [];
 
   return [
-    { type: "divider" },
     {
       type: "section",
       text: { type: "mrkdwn", text: "*Office attendance*" },
@@ -80,7 +78,6 @@ export function buildUserPreferenceBlocks(data: UserHomeData): any[] {
     ...dayBlocks,
     ...(data.isOptedIn
       ? [
-          { type: "divider" as const },
           {
             type: "section",
             text: { type: "mrkdwn", text: "*Lunch*" },
@@ -101,7 +98,6 @@ export function buildUserPreferenceBlocks(data: UserHomeData): any[] {
       : []),
     ...(data.isOptedIn
       ? [
-          { type: "divider" as const },
           {
             type: "section",
             text: {
@@ -115,7 +111,6 @@ export function buildUserPreferenceBlocks(data: UserHomeData): any[] {
               placeholder: { type: "plain_text", text: "Select time" },
             },
           },
-          { type: "divider" as const },
           {
             type: "actions",
             elements: [

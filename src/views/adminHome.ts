@@ -33,11 +33,11 @@ export function buildAdminHomeView(data: AdminHomeData): View {
         text: { type: "plain_text", text: "Your Preferences", emoji: true },
       },
       ...buildUserPreferenceBlocks(data.userPrefs),
+      { type: "divider" },
       {
         type: "header",
         text: { type: "plain_text", text: "Admin Settings", emoji: true },
       },
-      { type: "divider" },
       {
         type: "section",
         text: { type: "mrkdwn", text: "*Who should be asked about office attendance?*" },
@@ -48,7 +48,6 @@ export function buildAdminHomeView(data: AdminHomeData): View {
           ...(data.targetUserIds.length > 0 ? { initial_users: data.targetUserIds } : {}),
         },
       },
-      { type: "divider" },
       {
         type: "section",
         text: { type: "mrkdwn", text: "*Which days should be asked about?*\n_The question is sent the day before._" },
@@ -65,7 +64,6 @@ export function buildAdminHomeView(data: AdminHomeData): View {
           },
         ],
       },
-      { type: "divider" },
       {
         type: "section",
         text: { type: "mrkdwn", text: "*Default time to ask the question:*" },
@@ -76,7 +74,6 @@ export function buildAdminHomeView(data: AdminHomeData): View {
           placeholder: { type: "plain_text", text: "Select time" },
         },
       },
-      { type: "divider" },
       {
         type: "section",
         text: { type: "mrkdwn", text: "*Who should be asked about bringing lunch?*" },
@@ -87,7 +84,6 @@ export function buildAdminHomeView(data: AdminHomeData): View {
           ...(data.lunchUserIds.length > 0 ? { initial_users: data.lunchUserIds } : {}),
         },
       },
-      { type: "divider" },
       {
         type: "section",
         text: { type: "mrkdwn", text: "*Who are the admins?*" },
@@ -98,12 +94,10 @@ export function buildAdminHomeView(data: AdminHomeData): View {
           ...(data.adminUserIds.length > 0 ? { initial_users: data.adminUserIds } : {}),
         },
       },
-      { type: "divider" },
       {
         type: "context",
         elements: [{ type: "mrkdwn", text: "Changes are saved automatically." }],
       },
-      { type: "divider" }
     ],
   };
 }

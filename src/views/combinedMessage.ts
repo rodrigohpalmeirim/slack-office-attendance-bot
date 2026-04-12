@@ -22,7 +22,6 @@ export function buildCombinedMessage(
 
   return [
     ...buildSummaryMessage(summaryData),
-    { type: "divider" },
     ...questionBlocks,
   ];
 }
