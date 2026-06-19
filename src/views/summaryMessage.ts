@@ -83,18 +83,19 @@ export function buildSummaryMessage(data: SummaryData, profiles: ProfileMap): Kn
     if (block) blocks.push(block);
   };
 
-  push(peopleRow(`:${STATUS_META.office.emoji}: *Office (${data.office.length})*`, data.office, profiles, "_No one yet_"));
+  // Lunch is a subset of the office (everyone's faces are already in that row),
+  // so show it as a compact tally appended to the Office line rather than a
+  // separate row.
+  const lunch =
+    data.lunchBringing.length > 0 || data.lunchNotBringing.length > 0
+      ? `:bento: ${data.lunchBringing.length} bringing lunch${data.lunchNotBringing.length > 0 ? ` · ${data.lunchNotBringing.length} not` : ""}`
+      : undefined;
+
+  push(peopleRow(`:${STATUS_META.office.emoji}: *Office (${data.office.length})*`, data.office, profiles, "_No one yet_", lunch));
   push(peopleRow(`:${STATUS_META.remote.emoji}: *Remote (${data.remote.length})*`, data.remote, profiles, "_No one_"));
   push(peopleRow(`:${STATUS_META.away.emoji}: *Away (${data.away.length})*`, data.away, profiles));
   push(peopleRow(`:${STATUS_META.maybe.emoji}: *Maybe (${data.maybe.length})*`, data.maybe, profiles));
   push(peopleRow(`:${UNKNOWN_META.emoji}: *No answer (${data.noResponse.length})*`, data.noResponse, profiles));
-
-  // Lunch — faces for who's bringing lunch (only set for people in the office),
-  // with a trailing count of who explicitly isn't.
-  if (data.lunchBringing.length > 0 || data.lunchNotBringing.length > 0) {
-    const notBringing = data.lunchNotBringing.length > 0 ? `_· ${data.lunchNotBringing.length} not bringing_` : undefined;
-    push(peopleRow(`:bento: *Bringing lunch (${data.lunchBringing.length})*`, data.lunchBringing, profiles, "_No one yet_", notBringing));
-  }
 
   return blocks;
 }
