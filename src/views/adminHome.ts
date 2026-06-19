@@ -1,5 +1,5 @@
 import type { View } from "@slack/types";
-import { buildUserPreferenceBlocks, type UserHomeData } from "./userHome.js";
+import { buildUserPreferenceBlocks, buildWebPageButtonBlocks, type UserHomeData } from "./userHome.js";
 
 export interface AdminHomeData {
   adminUserIds: string[];
@@ -28,6 +28,7 @@ export function buildAdminHomeView(data: AdminHomeData): View {
   return {
     type: "home",
     blocks: [
+      ...buildWebPageButtonBlocks(),
       {
         type: "header",
         text: { type: "plain_text", text: "Your Preferences", emoji: true },

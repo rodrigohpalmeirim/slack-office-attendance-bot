@@ -27,6 +27,27 @@ const LUNCH_OPTED_IN_OPTION = {
 };
 
 /**
+ * Button linking to the companion web page. Empty unless PUBLIC_URL is set.
+ * Placed above the home tab's title in both the user and admin views.
+ */
+export function buildWebPageButtonBlocks(): any[] {
+  if (!PUBLIC_URL) return [];
+  return [
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: { type: "plain_text", text: "Open attendance web page", emoji: true },
+          url: PUBLIC_URL,
+          action_id: "open_web_page",
+        },
+      ],
+    },
+  ];
+}
+
+/**
  * Returns the preference blocks without a page header, so they can be
  * embedded in other views (e.g. the admin home).
  */
@@ -60,25 +81,7 @@ export function buildUserPreferenceBlocks(data: UserHomeData): any[] {
       ]
     : [];
 
-  const webPageBlocks: any[] = PUBLIC_URL
-    ? [
-        {
-          type: "actions",
-          elements: [
-            {
-              type: "button",
-              text: { type: "plain_text", text: "Open attendance web page", emoji: true },
-              url: PUBLIC_URL,
-              action_id: "open_web_page",
-            },
-          ],
-        },
-        { type: "divider" },
-      ]
-    : [];
-
   return [
-    ...webPageBlocks,
     {
       type: "section",
       text: { type: "mrkdwn", text: "*Office attendance*" },
@@ -165,6 +168,7 @@ export function buildUserHomeView(data: UserHomeData): View {
   return {
     type: "home",
     blocks: [
+      ...buildWebPageButtonBlocks(),
       {
         type: "header",
         text: { type: "plain_text", text: "Attendance Bot — Preferences", emoji: true },
