@@ -26,13 +26,21 @@ const MAX_FACES = 9;
  * (name shown on hover via alt text). Falls back to `emptyText` when nobody is
  * in the group; returns null if empty and no fallback is given.
  */
-function peopleRow(label: string, ids: string[], profiles: ProfileMap, emptyText?: string): ContextBlock | null {
+function peopleRow(
+  label: string,
+  ids: string[],
+  profiles: ProfileMap,
+  emptyText?: string,
+  trailing?: string
+): ContextBlock | null {
   if (ids.length === 0 && !emptyText) return null;
 
   const elements: ContextBlock["elements"] = [{ type: "mrkdwn", text: label }];
 
-  const overflow = ids.length > MAX_FACES;
-  const shown = overflow ? ids.slice(0, MAX_FACES - 1) : ids;
+  // Budget within the 10-element cap, reserving the label and (if any) trailing.
+  const faceBudget = MAX_FACES - (trailing ? 1 : 0);
+  const overflow = ids.length > faceBudget;
+  const shown = overflow ? ids.slice(0, faceBudget - 1) : ids;
   for (const id of shown) {
     const p = profiles.get(id);
     if (p?.image) {
@@ -40,12 +48,16 @@ function peopleRow(label: string, ids: string[], profiles: ProfileMap, emptyText
     }
   }
   if (overflow) {
-    elements.push({ type: "mrkdwn", text: `*+${ids.length - (MAX_FACES - 1)}*` });
+    elements.push({ type: "mrkdwn", text: `*+${ids.length - (faceBudget - 1)}*` });
   }
 
   // Nothing rendered besides the label (empty group, or none had avatars).
   if (elements.length === 1 && emptyText) {
     elements.push({ type: "mrkdwn", text: emptyText });
+  }
+
+  if (trailing) {
+    elements.push({ type: "mrkdwn", text: trailing });
   }
 
   return { type: "context", elements };
@@ -77,9 +89,11 @@ export function buildSummaryMessage(data: SummaryData, profiles: ProfileMap): Kn
   push(peopleRow(`:${STATUS_META.maybe.emoji}: *Maybe (${data.maybe.length})*`, data.maybe, profiles));
   push(peopleRow(`:${UNKNOWN_META.emoji}: *No answer (${data.noResponse.length})*`, data.noResponse, profiles));
 
-  // Lunch — faces for who's bringing lunch (only set for people in the office).
-  if (data.lunchBringing.length > 0) {
-    push(peopleRow(`:bento: *Bringing lunch (${data.lunchBringing.length})*`, data.lunchBringing, profiles));
+  // Lunch — faces for who's bringing lunch (only set for people in the office),
+  // with a trailing count of who explicitly isn't.
+  if (data.lunchBringing.length > 0 || data.lunchNotBringing.length > 0) {
+    const notBringing = data.lunchNotBringing.length > 0 ? `_· ${data.lunchNotBringing.length} not bringing_` : undefined;
+    push(peopleRow(`:bento: *Bringing lunch (${data.lunchBringing.length})*`, data.lunchBringing, profiles, "_No one yet_", notBringing));
   }
 
   return blocks;
