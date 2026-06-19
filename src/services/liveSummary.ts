@@ -10,6 +10,12 @@ import { formatDateForDisplay, getWeekdayFromDate } from "../utils/dates.js";
 import { normalizeStatus, type Status } from "../status.js";
 import { buildCombinedMessage } from "../views/combinedMessage.js";
 import type { SummaryData } from "../views/summaryMessage.js";
+import { getProfiles } from "./profiles.js";
+
+/** Every distinct user referenced in a summary (for avatar lookup). */
+export function summaryUserIds(data: SummaryData): string[] {
+  return [...new Set([...data.office, ...data.remote, ...data.away, ...data.maybe, ...data.noResponse])];
+}
 
 /**
  * Compute the shared summary state for a date: who is office/remote/away and
@@ -63,6 +69,7 @@ export function computeSummaryData(targetDate: string): SummaryData {
  */
 export async function updateAllLiveSummaries(client: WebClient, targetDate: string): Promise<void> {
   const summaryData = computeSummaryData(targetDate);
+  const profiles = await getProfiles(client, summaryUserIds(summaryData));
   const allResponses = getResponsesForDate(targetDate);
   const lunchTargetIds = new Set(getLunchTargetUserIds());
 
@@ -79,6 +86,7 @@ export async function updateAllLiveSummaries(client: WebClient, targetDate: stri
       summaryData.targetDate,
       summaryData.formattedDate,
       summaryData,
+      profiles,
       userResponse,
       showLunchQuestion,
       userLunchResponse

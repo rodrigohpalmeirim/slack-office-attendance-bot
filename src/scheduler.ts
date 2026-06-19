@@ -20,7 +20,8 @@ import {
 } from "./utils/dates.js";
 import { sendDm } from "./utils/slack.js";
 import { normalizeStatus } from "./status.js";
-import { computeSummaryData } from "./services/liveSummary.js";
+import { computeSummaryData, summaryUserIds } from "./services/liveSummary.js";
+import { getProfiles } from "./services/profiles.js";
 import { buildCombinedMessage } from "./views/combinedMessage.js";
 import { buildWeeklyPromptMessage } from "./views/weeklyPrompt.js";
 
@@ -80,6 +81,7 @@ export function startScheduler(app: App): void {
         try {
           const formattedDate = formatDateForDisplay(targetDate);
           const summaryData = computeSummaryData(targetDate);
+          const profiles = await getProfiles(app.client, summaryUserIds(summaryData));
           const userResponse = normalizeStatus(existing?.response ?? null);
           const showLunchQuestion = user.is_lunch_target !== 0;
 
@@ -90,6 +92,7 @@ export function startScheduler(app: App): void {
               targetDate,
               formattedDate,
               summaryData,
+              profiles,
               userResponse,
               showLunchQuestion,
               null

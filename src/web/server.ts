@@ -8,7 +8,7 @@ import {
 import { getWeekStart, addWeeks, datesForWeekdays, formatDateShort } from "../utils/dates.js";
 import { isStatus, normalizeStatus, type Status } from "../status.js";
 import { updateAllLiveSummaries } from "../services/liveSummary.js";
-import { getProfiles } from "./profiles.js";
+import { getProfiles } from "../services/profiles.js";
 import {
   isAuthConfigured,
   buildAuthorizeUrl,

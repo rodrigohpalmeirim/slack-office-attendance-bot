@@ -1,6 +1,6 @@
 import type { KnownBlock } from "@slack/types";
 import type { Status } from "../status.js";
-import { buildSummaryMessage, type SummaryData } from "./summaryMessage.js";
+import { buildSummaryMessage, type SummaryData, type ProfileMap } from "./summaryMessage.js";
 import { buildAskMessage, buildAskConfirmation } from "./askMessage.js";
 
 /**
@@ -12,6 +12,7 @@ export function buildCombinedMessage(
   targetDate: string,
   formattedDate: string,
   summaryData: SummaryData,
+  profiles: ProfileMap,
   userResponse: Status | null,
   showLunchQuestion: boolean,
   userLunchResponse: "yes" | "no" | null
@@ -22,7 +23,7 @@ export function buildCombinedMessage(
       : buildAskConfirmation(targetDate, formattedDate, userResponse, showLunchQuestion, userLunchResponse);
 
   return [
-    ...buildSummaryMessage(summaryData),
+    ...buildSummaryMessage(summaryData, profiles),
     ...questionBlocks,
   ];
 }
