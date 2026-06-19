@@ -13,8 +13,11 @@ import { updateAllLiveSummaries } from "../services/liveSummary.js";
 import { refreshHomeView } from "./appHome.js";
 
 export function registerActionHandlers(app: App): void {
-  // The weekly-prompt button just opens a URL; ack so Slack doesn't warn.
+  // URL buttons (open the web page) just need an ack so Slack doesn't warn.
   app.action("open_weekly_web", async ({ ack }) => {
+    await ack();
+  });
+  app.action("open_web_page", async ({ ack }) => {
     await ack();
   });
 

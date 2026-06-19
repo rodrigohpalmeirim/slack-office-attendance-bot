@@ -1,5 +1,7 @@
 import type { View } from "@slack/types";
 
+const PUBLIC_URL = (process.env.PUBLIC_URL || "").replace(/\/$/, "");
+
 export interface UserHomeData {
   defaultAskTime: string;
   customAskTime: string | null;
@@ -58,7 +60,25 @@ export function buildUserPreferenceBlocks(data: UserHomeData): any[] {
       ]
     : [];
 
+  const webPageBlocks: any[] = PUBLIC_URL
+    ? [
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: { type: "plain_text", text: "Open attendance web page", emoji: true },
+              url: PUBLIC_URL,
+              action_id: "open_web_page",
+            },
+          ],
+        },
+        { type: "divider" },
+      ]
+    : [];
+
   return [
+    ...webPageBlocks,
     {
       type: "section",
       text: { type: "mrkdwn", text: "*Office attendance*" },
