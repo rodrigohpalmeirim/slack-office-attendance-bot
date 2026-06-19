@@ -8,7 +8,7 @@ import {
   getConfig,
 } from "../db.js";
 import { getUserTimezone } from "../utils/slack.js";
-import { STATUSES, type Status } from "../status.js";
+import { DAILY_STATUSES, type Status } from "../status.js";
 import { updateAllLiveSummaries } from "../services/liveSummary.js";
 import { refreshHomeView } from "./appHome.js";
 
@@ -23,7 +23,7 @@ export function registerActionHandlers(app: App): void {
 
   // --- Attendance status (one handler per status) ---
 
-  for (const status of STATUSES) {
+  for (const status of DAILY_STATUSES) {
     app.action(`attendance_${status}`, async ({ ack, body, client }) => {
       await ack();
       const action = (body as BlockAction).actions[0];

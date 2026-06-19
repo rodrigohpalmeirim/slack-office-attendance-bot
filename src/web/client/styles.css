@@ -10,6 +10,8 @@
   --remote-bg: #e9f1fc;
   --away: #e8a33d;
   --away-bg: #fcf3e3;
+  --maybe: #8a6fb0;
+  --maybe-bg: #efeaf6;
   --unknown-bg: #f0f1f3;
 }
 
@@ -142,6 +144,7 @@ body {
 .cell.status.office { background: var(--office-bg); color: var(--office); }
 .cell.status.remote { background: var(--remote-bg); color: var(--remote); }
 .cell.status.away { background: var(--away-bg); color: var(--away); }
+.cell.status.maybe { background: var(--maybe-bg); color: var(--maybe); }
 .cell.status.unknown { color: var(--muted); }
 
 button.cell.status.editable {
@@ -168,6 +171,7 @@ button.cell.status.editable.unknown { border-color: #c7cace; }
 .chip.office { background: var(--office-bg); color: var(--office); }
 .chip.remote { background: var(--remote-bg); color: var(--remote); }
 .chip.away { background: var(--away-bg); color: var(--away); }
+.chip.maybe { background: var(--maybe-bg); color: var(--maybe); }
 
 .muted { color: var(--muted); }
 

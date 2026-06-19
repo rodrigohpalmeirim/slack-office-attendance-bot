@@ -8,6 +8,7 @@ export interface SummaryData {
   office: string[];
   remote: string[];
   away: string[];
+  maybe: string[];
   noResponse: string[];
   lunchBringing: string[];
   lunchNotBringing: string[];
@@ -73,6 +74,17 @@ export function buildSummaryMessage(data: SummaryData): KnownBlock[] {
       text: {
         type: "mrkdwn",
         text: `:${STATUS_META.away.emoji}: *Away (${data.away.length}):*\n${mentions(data.away, "_No one_")}`,
+      },
+    });
+  }
+
+  // Maybe (tentative — only ever set from the weekly grid)
+  if (data.maybe.length > 0) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `:${STATUS_META.maybe.emoji}: *Maybe (${data.maybe.length}):*\n${mentions(data.maybe, "_No one_")}`,
       },
     });
   }

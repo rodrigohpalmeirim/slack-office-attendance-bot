@@ -1,13 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
 
-type Status = "office" | "remote" | "away";
+type Status = "office" | "remote" | "away" | "maybe";
 
-const STATUS_CYCLE: (Status | null)[] = ["office", "remote", "away", null];
+const STATUS_CYCLE: (Status | null)[] = ["office", "remote", "away", "maybe", null];
 
 const STATUS_META: Record<string, { label: string; emoji: string; className: string }> = {
   office: { label: "Office", emoji: "🏢", className: "office" },
   remote: { label: "Remote", emoji: "🏠", className: "remote" },
   away: { label: "Away", emoji: "🌴", className: "away" },
+  maybe: { label: "Maybe", emoji: "🤔", className: "maybe" },
   unknown: { label: "—", emoji: "", className: "unknown" },
 };
 
@@ -127,7 +128,7 @@ export function App() {
       </div>
 
       <p className="legend">
-        {(["office", "remote", "away"] as Status[]).map((s) => (
+        {(["office", "remote", "away", "maybe"] as Status[]).map((s) => (
           <span key={s} className={`chip ${STATUS_META[s].className}`}>{STATUS_META[s].emoji} {STATUS_META[s].label}</span>
         ))}
         <span className="muted">— click your own cells to change.</span>

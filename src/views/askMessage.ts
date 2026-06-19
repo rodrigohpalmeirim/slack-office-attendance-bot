@@ -1,5 +1,5 @@
 import type { KnownBlock } from "@slack/types";
-import { STATUSES, STATUS_META, type Status } from "../status.js";
+import { DAILY_STATUSES, STATUS_META, type Status } from "../status.js";
 
 /**
  * Build the attendance question DM with one button per status.
@@ -16,7 +16,7 @@ export function buildAskMessage(targetDate: string, formattedDate: string): Know
     {
       type: "actions",
       block_id: `attendance_ask_${targetDate}`,
-      elements: STATUSES.map((status) => {
+      elements: DAILY_STATUSES.map((status) => {
         const meta = STATUS_META[status];
         return {
           type: "button" as const,
@@ -45,6 +45,7 @@ export function buildAskConfirmation(
     office: `:${STATUS_META.office.emoji}: You're in the *office* on *${formattedDate}*.`,
     remote: `:${STATUS_META.remote.emoji}: You're working *remote* on *${formattedDate}*.`,
     away: `:${STATUS_META.away.emoji}: You're *away* on *${formattedDate}*.`,
+    maybe: `:${STATUS_META.maybe.emoji}: You *might* be in the office on *${formattedDate}*.`,
   };
 
   const blocks: KnownBlock[] = [

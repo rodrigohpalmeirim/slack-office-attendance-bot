@@ -27,6 +27,7 @@ export function computeSummaryData(targetDate: string): SummaryData {
   const office = byStatus("office");
   const remote = byStatus("remote");
   const away = byStatus("away");
+  const maybe = byStatus("maybe");
   const noResponse = [
     ...allResponses.filter((r) => normalizeStatus(r.response) === null).map((r) => r.slack_user_id),
     ...allTargetIds.filter((id) => !respondedIds.has(id)),
@@ -48,6 +49,7 @@ export function computeSummaryData(targetDate: string): SummaryData {
     office,
     remote,
     away,
+    maybe,
     noResponse,
     lunchBringing,
     lunchNotBringing,
