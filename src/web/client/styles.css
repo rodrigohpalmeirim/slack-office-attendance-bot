@@ -1,0 +1,177 @@
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --border: #e3e6ea;
+  --text: #1d1c1d;
+  --muted: #7a7d82;
+  --office: #2eb67d;
+  --office-bg: #e7f7f0;
+  --remote: #4a90e2;
+  --remote-bg: #e9f1fc;
+  --away: #e8a33d;
+  --away-bg: #fcf3e3;
+  --unknown-bg: #f0f1f3;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.centered {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signin-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 40px;
+  text-align: center;
+  max-width: 380px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+.signin-card h1 { margin: 0 0 8px; font-size: 22px; }
+.signin-card p { color: var(--muted); margin: 0 0 24px; }
+
+.btn-primary {
+  display: inline-block;
+  background: #4a154b;
+  color: #fff;
+  text-decoration: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.topbar h1 { font-size: 20px; margin: 0; }
+.logout { color: var(--muted); font-size: 14px; text-decoration: none; }
+.logout:hover { color: var(--text); }
+
+.weeknav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.weeknav button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 15px;
+}
+.weeknav button:hover { background: #eef0f2; }
+.weeknav .today { margin-left: auto; }
+.weeklabel { font-weight: 600; }
+
+.banner {
+  background: #fcebea;
+  color: #a4302a;
+  border: 1px solid #f3c9c6;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.grid {
+  display: grid;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.cell {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  font-size: 14px;
+}
+
+.cell.head {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  text-align: center;
+}
+.cell.head .dow { font-weight: 700; }
+.cell.head .dom { color: var(--muted); font-size: 12px; }
+.cell.corner { font-weight: 700; align-items: flex-start; }
+
+.cell.name { gap: 8px; font-weight: 500; }
+.cell.name img { width: 26px; height: 26px; border-radius: 6px; }
+.cell.name .avatar-fallback { width: 26px; height: 26px; border-radius: 6px; background: var(--unknown-bg); display: inline-block; }
+.cell.name.me { font-weight: 700; }
+
+.cell.status {
+  justify-content: center;
+  gap: 6px;
+  font-weight: 600;
+  background: var(--unknown-bg);
+}
+.cell.status .emoji { font-size: 15px; }
+.cell.status .lbl { font-size: 13px; }
+
+.cell.status.office { background: var(--office-bg); color: var(--office); }
+.cell.status.remote { background: var(--remote-bg); color: var(--remote); }
+.cell.status.away { background: var(--away-bg); color: var(--away); }
+.cell.status.unknown { color: var(--muted); }
+
+button.cell.status.editable {
+  cursor: pointer;
+  border-style: dashed;
+  font-family: inherit;
+}
+button.cell.status.editable:hover { filter: brightness(0.96); }
+button.cell.status.editable.unknown { border-color: #c7cace; }
+
+.legend {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.chip.office { background: var(--office-bg); color: var(--office); }
+.chip.remote { background: var(--remote-bg); color: var(--remote); }
+.chip.away { background: var(--away-bg); color: var(--away); }
+
+.muted { color: var(--muted); }
+
+@media (max-width: 640px) {
+  .cell.status .lbl { display: none; }
+  .cell.name span:last-child { font-size: 13px; }
+}

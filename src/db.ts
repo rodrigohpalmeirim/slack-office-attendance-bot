@@ -67,6 +67,22 @@ try { db.run("ALTER TABLE responses ADD COLUMN lunch_response TEXT"); } catch {}
 // Sync: users who had opted out via enabled=0 should have is_target=0
 db.run("UPDATE users SET is_target = 0 WHERE enabled = 0 AND is_target = 1");
 
+// Migration: map legacy binary attendance values onto the new status model.
+// yes -> office, no -> remote. NULL stays NULL ("unknown").
+db.run("UPDATE responses SET response = 'office' WHERE response = 'yes'");
+db.run("UPDATE responses SET response = 'remote' WHERE response = 'no'");
+
+// Tracks which users have already received the weekly prediction prompt for a
+// given week (keyed by that week's Monday), so the Friday DM is sent once.
+db.run(`
+  CREATE TABLE IF NOT EXISTS weekly_prompts (
+    slack_user_id TEXT NOT NULL,
+    week_start TEXT NOT NULL,
+    sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(slack_user_id, week_start)
+  )
+`);
+
 // Stores the live summary message ts/channel per user per date so it can be updated in-place
 db.run(`
   CREATE TABLE IF NOT EXISTS live_summaries (
@@ -262,9 +278,31 @@ export function upsertLiveSummary(slackUserId: string, targetDate: string, messa
 }
 
 export function setTargetUsers(userIds: string[]): void {
-  // Users removed from attendance are also removed from lunch
-  db.run("UPDATE users SET is_target = 0, is_lunch_target = 0, updated_at = datetime('now')");
+  db.run("UPDATE users SET is_target = 0, updated_at = datetime('now')");
   for (const userId of userIds) {
     upsertUser(userId, { is_target: 1 });
   }
+  // Only users removed from attendance lose lunch; those who remain targets
+  // keep their existing lunch selection.
+  db.run("UPDATE users SET is_lunch_target = 0 WHERE is_target = 0");
+}
+
+/** All responses with a target_date in the inclusive [start, end] range. */
+export function getResponsesForDateRange(startDate: string, endDate: string): Response[] {
+  return db.query<Response, [string, string]>(
+    "SELECT * FROM responses WHERE target_date >= ? AND target_date <= ?"
+  ).all(startDate, endDate);
+}
+
+export function hasWeeklyPromptBeenSent(slackUserId: string, weekStart: string): boolean {
+  return !!db.query<{ c: number }, [string, string]>(
+    "SELECT COUNT(*) AS c FROM weekly_prompts WHERE slack_user_id = ? AND week_start = ?"
+  ).get(slackUserId, weekStart)?.c;
+}
+
+export function markWeeklyPromptSent(slackUserId: string, weekStart: string): void {
+  db.run(
+    "INSERT OR IGNORE INTO weekly_prompts (slack_user_id, week_start) VALUES (?, ?)",
+    [slackUserId, weekStart]
+  );
 }

@@ -1,87 +1,43 @@
 import type { App, BlockAction } from "@slack/bolt";
-import type { WebClient } from "@slack/web-api";
 import {
   upsertResponse,
-  getResponsesForDate,
-  getTargetUsersForWeekday,
-  getLunchTargetUserIds,
   setLunchTargetUsers,
-  getLiveSummariesForDate,
   updateConfig,
   setTargetUsers,
   upsertUser,
   getConfig,
 } from "../db.js";
-import { updateMessage, getUserTimezone } from "../utils/slack.js";
-import { formatDateForDisplay, getWeekdayFromDate } from "../utils/dates.js";
-import { buildCombinedMessage } from "../views/combinedMessage.js";
+import { getUserTimezone } from "../utils/slack.js";
+import { STATUSES, type Status } from "../status.js";
+import { updateAllLiveSummaries } from "../services/liveSummary.js";
 import { refreshHomeView } from "./appHome.js";
 
-/**
- * Rebuild the combined message for every user who has received it for the
- * given date. Each user gets the shared summary state but their own
- * question section (buttons vs. confirmation) based on their response.
- */
-async function updateAllLiveSummaries(client: WebClient, targetDate: string): Promise<void> {
-  const allResponses = getResponsesForDate(targetDate);
-  const allTargetIds = getTargetUsersForWeekday(getWeekdayFromDate(targetDate)).map((u) => u.slack_user_id);
-  const respondedIds = new Set(allResponses.map((r) => r.slack_user_id));
-
-  const coming = allResponses.filter((r) => r.response === "yes").map((r) => r.slack_user_id);
-  const notComing = allResponses.filter((r) => r.response === "no").map((r) => r.slack_user_id);
-  const noResponse = [
-    ...allResponses.filter((r) => r.response === null).map((r) => r.slack_user_id),
-    ...allTargetIds.filter((id) => !respondedIds.has(id)),
-  ];
-
-  const lunchTargetIds = new Set(getLunchTargetUserIds());
-  const lunchBringing = allResponses
-    .filter((r) => r.lunch_response === "yes" && lunchTargetIds.has(r.slack_user_id))
-    .map((r) => r.slack_user_id);
-  const lunchNotBringing = allResponses
-    .filter((r) => r.lunch_response === "no" && lunchTargetIds.has(r.slack_user_id))
-    .map((r) => r.slack_user_id);
-
-  const formattedDate = formatDateForDisplay(targetDate);
-  const summaryData = { targetDate, formattedDate, coming, notComing, noResponse, lunchBringing, lunchNotBringing };
-  const responseMap = new Map(allResponses.map((r) => [r.slack_user_id, r.response as "yes" | "no" | null]));
-  const lunchResponseMap = new Map(allResponses.map((r) => [r.slack_user_id, r.lunch_response as "yes" | "no" | null]));
-
-  for (const summary of getLiveSummariesForDate(targetDate)) {
-    const userResponse = responseMap.get(summary.slack_user_id) ?? null;
-    const userLunchResponse = lunchResponseMap.get(summary.slack_user_id) ?? null;
-    const showLunchQuestion = lunchTargetIds.has(summary.slack_user_id);
-    const blocks = buildCombinedMessage(targetDate, formattedDate, summaryData, userResponse, showLunchQuestion, userLunchResponse);
-    try {
-      await updateMessage(client, summary.channel_id, summary.message_ts, blocks, `Live attendance for ${formattedDate}`);
-    } catch (err) {
-      console.error(`Failed to update live summary for ${summary.slack_user_id}:`, err);
-    }
-  }
-}
-
 export function registerActionHandlers(app: App): void {
-  // --- Attendance Yes/No ---
-
-  app.action("attendance_yes", async ({ ack, body, client }) => {
+  // The weekly-prompt button just opens a URL; ack so Slack doesn't warn.
+  app.action("open_weekly_web", async ({ ack }) => {
     await ack();
-    const action = (body as BlockAction).actions[0];
-    const targetDate = action.type === "button" ? action.value! : "";
-    const userId = body.user.id;
-
-    upsertResponse(userId, targetDate, { response: "yes", responded_at: new Date().toISOString() });
-    await updateAllLiveSummaries(client, targetDate);
   });
 
-  app.action("attendance_no", async ({ ack, body, client }) => {
-    await ack();
-    const action = (body as BlockAction).actions[0];
-    const targetDate = action.type === "button" ? action.value! : "";
-    const userId = body.user.id;
+  // --- Attendance status (one handler per status) ---
 
-    upsertResponse(userId, targetDate, { response: "no", responded_at: new Date().toISOString() });
-    await updateAllLiveSummaries(client, targetDate);
-  });
+  for (const status of STATUSES) {
+    app.action(`attendance_${status}`, async ({ ack, body, client }) => {
+      await ack();
+      const action = (body as BlockAction).actions[0];
+      const targetDate = action.type === "button" ? action.value! : "";
+      const userId = body.user.id;
+
+      const fields: { response: Status; responded_at: string; lunch_response?: null } = {
+        response: status,
+        responded_at: new Date().toISOString(),
+      };
+      // Leaving the office invalidates any prior lunch answer.
+      if (status !== "office") fields.lunch_response = null;
+
+      upsertResponse(userId, targetDate, fields);
+      await updateAllLiveSummaries(client, targetDate);
+    });
+  }
 
   // --- Change Response ---
   // Null the response (and lunch response) so the user moves back to "no answer",

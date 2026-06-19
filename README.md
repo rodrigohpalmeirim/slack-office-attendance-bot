@@ -1,15 +1,18 @@
 # Slack Office Attendance Bot
 
-A Slack bot that asks teammates if they're coming to the office the next day. Responses are collected via Yes/No buttons, and a live summary updates in real time as people reply.
+A Slack bot that asks teammates where they'll be working — **Office, Remote, or Away** — and shows a live summary that updates in real time as people reply. Includes an optional companion web page and a weekly planning prompt.
 
 ## Features
 
 - Sends a daily DM to configured teammates asking about the next office day
+- **Office / Remote / Away** statuses (unanswered = "Unknown") instead of a plain yes/no
 - Live summary message updates in-place as each person responds — no separate scheduled summary
+- **Weekly prediction**: a Friday DM links each teammate to the web page to plan the coming week
+- **Companion web page** (optional): "Sign in with Slack", view the whole team's week at a glance, and edit your own statuses. Edits sync back to the live Slack summaries.
 - Admins configure office days, target teammates, ask time, and other admins via an App Home tab
 - Each teammate can override their ask time or opt out entirely from their own App Home tab
 - Per-user timezones read automatically from Slack profiles
-- Socket Mode — no public URL or reverse proxy required
+- Slack interactivity uses Socket Mode; the web page is a separate HTTP server (only needed if you enable it)
 
 ## Slack App Setup
 
@@ -31,6 +34,17 @@ A Slack bot that asks teammates if they're coming to the office the next day. Re
 6. Under **App Home**, enable the **Home Tab**.
 
 7. Under **Interactivity & Shortcuts**, ensure interactivity is enabled (Socket Mode handles this automatically).
+
+### Optional: companion web page (Sign in with Slack)
+
+To enable the web page and weekly prompt links, also configure OpenID Connect:
+
+1. Under **OAuth & Permissions** → **Redirect URLs**, add `https://your-public-url/auth/callback`.
+2. Add the **User Token Scopes** `openid` and `profile` (these power "Sign in with Slack"; they are separate from the bot scopes above).
+3. Reinstall the app, then from **Basic Information** copy the **Client ID** and **Client Secret** into `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`.
+4. Set `PUBLIC_URL` to the public HTTPS base URL (no trailing slash) and `SESSION_SECRET` to a long random string.
+
+The web server only starts when `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `PUBLIC_URL`, and `SESSION_SECRET` are all set; otherwise the bot runs Slack-only as before. Put a TLS-terminating reverse proxy in front of `WEB_PORT` (default `3000`).
 
 ## Running Locally
 
@@ -71,13 +85,21 @@ A `docker-compose.yml` is also included for convenience — update the image nam
 | `SLACK_SIGNING_SECRET` | Signing secret from Basic Information |
 | `INITIAL_ADMIN_IDS` | Comma-separated Slack user IDs granted admin on first run |
 | `DATABASE_PATH` | Path to the SQLite database file (default: `./data/attendance.db`) |
+| `SLACK_CLIENT_ID` | OAuth client ID for "Sign in with Slack" (web page only) |
+| `SLACK_CLIENT_SECRET` | OAuth client secret (web page only) |
+| `PUBLIC_URL` | Public HTTPS base URL of the web page, no trailing slash (web page only) |
+| `SESSION_SECRET` | Long random string used to sign session cookies (web page only) |
+| `WEB_PORT` | Port the web server listens on (default `3000`) |
+| `SLACK_TEAM_ID` | Optional — restrict web sign-in to a single workspace |
 
 ## How It Works
 
 - A cron job runs every minute. For each target teammate, if tomorrow is an office day and it's their configured ask time, the bot sends them a DM.
-- The DM contains a live attendance summary (updated as people respond) followed by Yes/No buttons.
+- The DM contains a live attendance summary (updated as people respond) followed by **Office / Remote / Away** buttons.
 - Clicking a button updates the response and immediately refreshes the summary section in every teammate's message.
 - "Change response" re-opens the buttons and moves the person back to the unanswered list.
+- On Fridays, each teammate also gets a DM linking to the web page to predict the **coming week**. Those predictions pre-fill each day; the daily DM then just confirms or adjusts.
+- The web page reads/writes the same per-day responses, so a status set on the web instantly updates the live Slack summary, and vice versa.
 
 ## Docker Image
 

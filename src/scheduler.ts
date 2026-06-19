@@ -4,28 +4,31 @@ import { DateTime } from "luxon";
 import {
   getConfig,
   getTargetUsers,
-  getTargetUsersForWeekday,
   getResponseForUserDate,
-  getResponsesForDate,
   upsertResponse,
   upsertLiveSummary,
+  hasWeeklyPromptBeenSent,
+  markWeeklyPromptSent,
 } from "./db.js";
 import {
   getCurrentTimeInTimezone,
   isTimeMatch,
   isTodayActiveDay,
   formatDateForDisplay,
+  getWeekStart,
+  addWeeks,
 } from "./utils/dates.js";
 import { sendDm } from "./utils/slack.js";
+import { normalizeStatus } from "./status.js";
+import { computeSummaryData } from "./services/liveSummary.js";
 import { buildCombinedMessage } from "./views/combinedMessage.js";
+import { buildWeeklyPromptMessage } from "./views/weeklyPrompt.js";
 
 export function startScheduler(app: App): void {
   cron.schedule("* * * * *", async () => {
     try {
       const config = getConfig();
       const activeDays: number[] = JSON.parse(config.active_days);
-
-      if (activeDays.length === 0) return;
 
       const targetUsers = getTargetUsers(); // enabled targets only
 
@@ -34,7 +37,27 @@ export function startScheduler(app: App): void {
         const now = getCurrentTimeInTimezone(tz);
         const askTime = user.custom_ask_time || config.default_ask_time;
 
-        // Send the question if tomorrow is a global office day
+        // --- Weekly prediction prompt: sent on Fridays for the coming week ---
+        if (now.dayOfWeek === 5 && isTimeMatch(now.hours, now.minutes, askTime)) {
+          const nextWeekStart = addWeeks(getWeekStart(undefined, tz), 1);
+          if (!hasWeeklyPromptBeenSent(user.slack_user_id, nextWeekStart)) {
+            try {
+              await sendDm(
+                app.client,
+                user.slack_user_id,
+                buildWeeklyPromptMessage(nextWeekStart),
+                "Plan your office attendance for next week"
+              );
+              markWeeklyPromptSent(user.slack_user_id, nextWeekStart);
+            } catch (err) {
+              console.error(`Failed to send weekly prompt to ${user.slack_user_id}:`, err);
+            }
+          }
+        }
+
+        // --- Daily attendance question (asks about tomorrow) ---
+        if (activeDays.length === 0) continue;
+
         const tomorrow = DateTime.now().setZone(tz).plus({ days: 1 });
         if (!isTodayActiveDay(tomorrow.weekday, activeDays)) continue;
 
@@ -47,23 +70,17 @@ export function startScheduler(app: App): void {
         const targetDate = tomorrow.toFormat("yyyy-MM-dd");
 
         if (!isTimeMatch(now.hours, now.minutes, askTime)) continue;
-        if (getResponseForUserDate(user.slack_user_id, targetDate)) continue; // already asked
+
+        // A response row may already exist from a weekly prediction. Only skip
+        // if the daily DM was actually sent (message_ts present); otherwise the
+        // DM goes out pre-filled with their prediction to confirm/adjust.
+        const existing = getResponseForUserDate(user.slack_user_id, targetDate);
+        if (existing?.message_ts) continue;
 
         try {
           const formattedDate = formatDateForDisplay(targetDate);
-
-          // Build initial summary — only users subscribed for this day
-          const allResponses = getResponsesForDate(targetDate);
-          const allTargetIds = getTargetUsersForWeekday(tomorrow.weekday).map((u) => u.slack_user_id);
-          const respondedIds = new Set(allResponses.map((r) => r.slack_user_id));
-
-          const coming = allResponses.filter((r) => r.response === "yes").map((r) => r.slack_user_id);
-          const notComing = allResponses.filter((r) => r.response === "no").map((r) => r.slack_user_id);
-          const noResponse = [
-            ...allResponses.filter((r) => r.response === null).map((r) => r.slack_user_id),
-            ...allTargetIds.filter((id) => !respondedIds.has(id)),
-          ];
-
+          const summaryData = computeSummaryData(targetDate);
+          const userResponse = normalizeStatus(existing?.response ?? null);
           const showLunchQuestion = user.is_lunch_target !== 0;
 
           const { ts, channelId } = await sendDm(
@@ -72,12 +89,12 @@ export function startScheduler(app: App): void {
             buildCombinedMessage(
               targetDate,
               formattedDate,
-              { targetDate, formattedDate, coming, notComing, noResponse, lunchBringing: [], lunchNotBringing: [] },
-              null,
+              summaryData,
+              userResponse,
               showLunchQuestion,
               null
             ),
-            `Are you coming to the office on ${formattedDate}?`
+            `Where will you be on ${formattedDate}?`
           );
 
           upsertResponse(user.slack_user_id, targetDate, { message_ts: ts, channel_id: channelId });

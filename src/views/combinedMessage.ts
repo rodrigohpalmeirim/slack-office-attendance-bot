@@ -1,4 +1,5 @@
 import type { KnownBlock } from "@slack/types";
+import type { Status } from "../status.js";
 import { buildSummaryMessage, type SummaryData } from "./summaryMessage.js";
 import { buildAskMessage, buildAskConfirmation } from "./askMessage.js";
 
@@ -11,7 +12,7 @@ export function buildCombinedMessage(
   targetDate: string,
   formattedDate: string,
   summaryData: SummaryData,
-  userResponse: "yes" | "no" | null,
+  userResponse: Status | null,
   showLunchQuestion: boolean,
   userLunchResponse: "yes" | "no" | null
 ): KnownBlock[] {

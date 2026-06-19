@@ -2,6 +2,7 @@ import { App, LogLevel } from "@slack/bolt";
 import { registerAppHomeHandler } from "./handlers/appHome.js";
 import { registerActionHandlers } from "./handlers/actions.js";
 import { startScheduler } from "./scheduler.js";
+import { startWebServer } from "./web/server.js";
 
 // Bun loads .env automatically — no dotenv needed
 
@@ -21,6 +22,9 @@ registerActionHandlers(app);
 
 // Start scheduler
 startScheduler(app);
+
+// Start the companion web server (no-op unless OAuth env vars are configured)
+startWebServer(app);
 
 // Start the app
 await app.start();

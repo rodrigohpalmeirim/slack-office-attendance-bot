@@ -1,13 +1,20 @@
 import type { KnownBlock } from "@slack/types";
+import { STATUS_META, UNKNOWN_META } from "../status.js";
 
 export interface SummaryData {
   targetDate: string;
   formattedDate: string;
-  coming: string[];
-  notComing: string[];
+  /** Slack user IDs grouped by status. */
+  office: string[];
+  remote: string[];
+  away: string[];
   noResponse: string[];
   lunchBringing: string[];
   lunchNotBringing: string[];
+}
+
+function mentions(ids: string[], emptyText: string): string {
+  return ids.length > 0 ? ids.map((id) => `<@${id}>`).join(", ") : emptyText;
 }
 
 /**
@@ -26,16 +33,12 @@ export function buildSummaryMessage(data: SummaryData): KnownBlock[] {
     },
   ];
 
-  // Coming
-  const comingText =
-    data.coming.length > 0
-      ? data.coming.map((id) => `<@${id}>`).join(", ")
-      : "_No one yet_";
+  // Office
   blocks.push({
     type: "section",
     text: {
       type: "mrkdwn",
-      text: `:white_check_mark: *Coming (${data.coming.length}):*\n${comingText}`,
+      text: `:${STATUS_META.office.emoji}: *Office (${data.office.length}):*\n${mentions(data.office, "_No one yet_")}`,
     },
   });
 
@@ -54,27 +57,33 @@ export function buildSummaryMessage(data: SummaryData): KnownBlock[] {
     });
   }
 
-  // Not coming
-  const notComingText =
-    data.notComing.length > 0
-      ? data.notComing.map((id) => `<@${id}>`).join(", ")
-      : "_No one_";
+  // Remote
   blocks.push({
     type: "section",
     text: {
       type: "mrkdwn",
-      text: `:house: *Working remote (${data.notComing.length}):*\n${notComingText}`,
+      text: `:${STATUS_META.remote.emoji}: *Remote (${data.remote.length}):*\n${mentions(data.remote, "_No one_")}`,
     },
   });
 
-  // No response
-  if (data.noResponse.length > 0) {
-    const noResponseText = data.noResponse.map((id) => `<@${id}>`).join(", ");
+  // Away
+  if (data.away.length > 0) {
     blocks.push({
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `:grey_question: *No answer yet (${data.noResponse.length}):*\n${noResponseText}`,
+        text: `:${STATUS_META.away.emoji}: *Away (${data.away.length}):*\n${mentions(data.away, "_No one_")}`,
+      },
+    });
+  }
+
+  // No response
+  if (data.noResponse.length > 0) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `:${UNKNOWN_META.emoji}: *No answer yet (${data.noResponse.length}):*\n${mentions(data.noResponse, "_No one_")}`,
       },
     });
   }

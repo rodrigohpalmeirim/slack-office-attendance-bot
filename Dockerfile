@@ -14,6 +14,10 @@ COPY tsconfig.json ./
 RUN mkdir -p /data && chown bun:bun /data
 
 ENV DATABASE_PATH=/data/attendance.db
+ENV NODE_ENV=production
+
+# Companion web server port (when web env vars are configured)
+EXPOSE 3000
 
 USER bun
 

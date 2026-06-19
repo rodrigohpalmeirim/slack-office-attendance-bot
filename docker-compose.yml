@@ -5,11 +5,19 @@ services:
     restart: unless-stopped
     volumes:
       - data:/data
+    ports:
+      - "3000:3000"
     environment:
       SLACK_BOT_TOKEN: xoxb-...
       SLACK_APP_TOKEN: xapp-...
       SLACK_SIGNING_SECRET: ...
       INITIAL_ADMIN_IDS: U12345
+      # Companion web page (optional). Omit to run Slack-only.
+      SLACK_CLIENT_ID: ""
+      SLACK_CLIENT_SECRET: ""
+      PUBLIC_URL: https://attendance.example.com
+      SESSION_SECRET: ""
+      SLACK_TEAM_ID: ""
 
 volumes:
   data:
