@@ -1,16 +1,16 @@
 import type { KnownBlock } from "@slack/types";
 import { formatDateShort, datesForWeekdays } from "../utils/dates.js";
 
-const PUBLIC_URL = (process.env.PUBLIC_URL || "").replace(/\/$/, "");
-
 /**
  * Build the Friday DM nudging the user to fill in their attendance prediction
- * for the coming week on the companion web page.
+ * for the coming week on the companion web page. `webUrl` is the (per-user)
+ * link to open — typically a magic-login link so it works for everyone,
+ * including Slack Connect guests who can't use OAuth.
  */
-export function buildWeeklyPromptMessage(weekStart: string): KnownBlock[] {
+export function buildWeeklyPromptMessage(weekStart: string, webUrl: string | null): KnownBlock[] {
   const [monday, friday] = [datesForWeekdays(weekStart, [1])[0], datesForWeekdays(weekStart, [5])[0]];
   const rangeLabel = `${formatDateShort(monday)} – ${formatDateShort(friday)}`;
-  const link = PUBLIC_URL ? `${PUBLIC_URL}/?week=${weekStart}` : null;
+  const link = webUrl;
 
   const blocks: KnownBlock[] = [
     {

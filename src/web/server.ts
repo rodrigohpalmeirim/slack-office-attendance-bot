@@ -15,6 +15,7 @@ import {
   exchangeCodeForClaims,
   createSessionToken,
   verifySessionToken,
+  verifyMagicToken,
   parseCookies,
   sessionCookie,
   clearSessionCookie,
@@ -103,6 +104,19 @@ export function startWebServer(app: App): void {
 
       "/auth/logout": () =>
         new Response(null, { status: 302, headers: { Location: "/", "Set-Cookie": clearSessionCookie() } }),
+
+      // Magic-link login (bot-DM'd link for users who can't OAuth).
+      "/auth/magic": async (req: Request) => {
+        const url = new URL(req.url);
+        const session = await verifyMagicToken(url.searchParams.get("token") ?? undefined);
+        if (!session) {
+          return new Response("This login link is invalid or has expired. Please request a new one.", { status: 401 });
+        }
+        const next = url.searchParams.get("next");
+        const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+        const token = await createSessionToken(session.uid, session.name);
+        return new Response(null, { status: 302, headers: { Location: dest, "Set-Cookie": sessionCookie(token) } });
+      },
 
       // --- API ---
       "/api/me": async (req: Request) => {

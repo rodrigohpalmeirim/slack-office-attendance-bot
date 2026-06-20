@@ -92,6 +92,41 @@ function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
 
+// --- Magic links (for users who can't OAuth, e.g. Slack Connect guests) ---
+//
+// The bot DMs a user a signed, expiring link that logs them straight in. The
+// DM channel itself is the authorization: only the intended user can read it.
+
+const MAGIC_TTL_SECONDS = 60 * 60 * 24 * 14; // 14 days
+
+export async function createMagicToken(uid: string, name: string): Promise<string> {
+  const payload = { uid, name, exp: nowSeconds() + MAGIC_TTL_SECONDS, m: 1 };
+  const body = b64urlEncodeStr(JSON.stringify(payload));
+  return `${body}.${await sign(body)}`;
+}
+
+export async function verifyMagicToken(token: string | undefined): Promise<Session | null> {
+  if (!token) return null;
+  const [body, sig] = token.split(".");
+  if (!body || !sig) return null;
+  if ((await sign(body)) !== sig) return null;
+  try {
+    const p = JSON.parse(b64urlDecodeToStr(body)) as Session & { m?: number };
+    if (p.m !== 1 || p.exp < nowSeconds()) return null; // must be a magic token, unexpired
+    return { uid: p.uid, name: p.name, exp: p.exp };
+  } catch {
+    return null;
+  }
+}
+
+/** Full magic-login URL, optionally landing on a specific in-app path. */
+export function magicLink(token: string, next?: string): string {
+  const url = new URL(`${PUBLIC_URL}/auth/magic`);
+  url.searchParams.set("token", token);
+  if (next) url.searchParams.set("next", next);
+  return url.toString();
+}
+
 // --- OAuth flow ---
 
 export function buildAuthorizeUrl(state: string): string {

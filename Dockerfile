@@ -8,6 +8,7 @@ RUN bun install --frozen-lockfile --production
 
 # Copy source
 COPY src/ ./src/
+COPY scripts/ ./scripts/
 COPY tsconfig.json ./
 
 # SQLite database lives in a separate volume-mountable directory

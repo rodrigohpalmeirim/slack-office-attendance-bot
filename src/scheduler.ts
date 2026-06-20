@@ -24,6 +24,7 @@ import { computeSummaryData, summaryUserIds } from "./services/liveSummary.js";
 import { getProfiles } from "./services/profiles.js";
 import { buildCombinedMessage } from "./views/combinedMessage.js";
 import { buildWeeklyPromptMessage } from "./views/weeklyPrompt.js";
+import { createMagicToken, magicLink, isAuthConfigured } from "./web/auth.js";
 
 export function startScheduler(app: App): void {
   cron.schedule("* * * * *", async () => {
@@ -43,10 +44,13 @@ export function startScheduler(app: App): void {
           const nextWeekStart = addWeeks(getWeekStart(undefined, tz), 1);
           if (!hasWeeklyPromptBeenSent(user.slack_user_id, nextWeekStart)) {
             try {
+              const link = isAuthConfigured()
+                ? magicLink(await createMagicToken(user.slack_user_id, user.slack_user_id), `/?week=${nextWeekStart}`)
+                : null;
               await sendDm(
                 app.client,
                 user.slack_user_id,
-                buildWeeklyPromptMessage(nextWeekStart),
+                buildWeeklyPromptMessage(nextWeekStart, link),
                 "Plan your office attendance for next week"
               );
               markWeeklyPromptSent(user.slack_user_id, nextWeekStart);
