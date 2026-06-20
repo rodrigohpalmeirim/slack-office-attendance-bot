@@ -102,6 +102,10 @@ export function buildAuthorizeUrl(state: string): string {
     redirect_uri: redirectUri,
     state,
   });
+  // Pin sign-in to our workspace so guests/external members authenticate here
+  // (where the app is installed) instead of their own home workspace — which
+  // otherwise fails with invalid_team_for_non_distributed_app.
+  if (ALLOWED_TEAM_ID) params.set("team", ALLOWED_TEAM_ID);
   return `https://slack.com/openid/connect/authorize?${params}`;
 }
 
