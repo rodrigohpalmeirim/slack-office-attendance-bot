@@ -24,7 +24,7 @@ const MAX_ELEMENTS = 10;
 
 // Lunch markers shown inline after a person's avatar on the Office row.
 const MARK_BRINGING = ":bento:"; // 🍱
-const MARK_NOT_BRINGING = ":fork_and_knife_with_plate:"; // 🍽️ — eating out / not bringing
+const MARK_NOT_BRINGING = ":knife_fork_plate:"; // 🍽️ — eating out / not bringing
 
 /**
  * A context block: a bold label followed by avatar thumbnails for each person
