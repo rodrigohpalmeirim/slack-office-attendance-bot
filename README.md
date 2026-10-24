@@ -109,3 +109,7 @@ The image is automatically built and pushed to GitHub Container Registry on ever
 ghcr.io/rodrigohpalmeirim/slack-office-attendance-bot:latest
 ghcr.io/rodrigohpalmeirim/slack-office-attendance-bot:<commit-sha>
 ```
+
+## License
+
+[GPL-3.0-or-later](LICENSE)

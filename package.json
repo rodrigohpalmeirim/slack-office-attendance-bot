@@ -1,6 +1,7 @@
 {
   "name": "slack-attendance-bot",
   "version": "1.0.0",
+  "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "bun --watch src/app.ts",
